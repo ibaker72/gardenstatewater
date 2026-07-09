@@ -27,7 +27,7 @@ export default async function DashboardPage() {
   const todayStart = startOfToday();
   const todayEnd = endOfToday();
 
-  const [config, todayOrders, pendingCount, jugItem, lowConsumables, overdueInvoices] =
+  const [config, todayOrders, pendingCount, jugItem, lowConsumables, overdueInvoices, openRequests] =
     await Promise.all([
       getConfig(),
       prisma.order.findMany({
@@ -40,6 +40,7 @@ export default async function DashboardPage() {
         where: { sku: { not: 'JUG_5GAL' }, reorderThreshold: { gt: 0 } },
       }),
       prisma.invoice.count({ where: { status: 'OVERDUE' } }),
+      prisma.portalRequest.count({ where: { resolved: false } }),
     ]);
 
   const [revenue8w, best, aov, streak, collection, activeCustomers] = await Promise.all([
@@ -85,7 +86,7 @@ export default async function DashboardPage() {
       />
 
       {/* Alerts */}
-      {(lowJugs || lowItems.length > 0 || overdueInvoices > 0 || pendingCount > 0) && (
+      {(lowJugs || lowItems.length > 0 || overdueInvoices > 0 || pendingCount > 0 || openRequests > 0) && (
         <div className="mb-4 space-y-2">
           {lowJugs && (
             <Link href="/inventory" className="flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-2.5 text-sm text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
@@ -103,6 +104,12 @@ export default async function DashboardPage() {
             <Link href="/invoices?status=OVERDUE" className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-900 dark:bg-red-900/30 dark:text-red-100">
               <AlertTriangle size={16} />
               {overdueInvoices} overdue invoice{overdueInvoices === 1 ? '' : 's'} need attention.
+            </Link>
+          )}
+          {openRequests > 0 && (
+            <Link href="/requests" className="flex items-center gap-2 rounded-lg bg-aqua-50 px-4 py-2.5 text-sm text-aqua-900 dark:bg-aqua-900/30 dark:text-aqua-100">
+              <AlertTriangle size={16} />
+              {openRequests} customer request{openRequests === 1 ? '' : 's'} from the portal.
             </Link>
           )}
           {pendingCount > 0 && (
