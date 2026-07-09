@@ -10,6 +10,7 @@ const PUBLIC_PREFIXES = [
   '/api/stripe/webhook',
   '/api/cron',
   '/api/portal',
+  '/api/pay',
   '/sw.js',
   '/manifest.webmanifest',
   '/offline',
