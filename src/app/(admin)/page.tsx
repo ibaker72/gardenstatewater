@@ -103,7 +103,7 @@ export default async function DashboardPage() {
           {overdueInvoices > 0 && (
             <Link href="/invoices?status=OVERDUE" className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-900 dark:bg-red-900/30 dark:text-red-100">
               <AlertTriangle size={16} />
-              {overdueInvoices} overdue invoice{overdueInvoices === 1 ? '' : 's'} need attention.
+              {overdueInvoices} overdue invoice{overdueInvoices === 1 ? ' needs' : 's need'} attention.
             </Link>
           )}
           {openRequests > 0 && (

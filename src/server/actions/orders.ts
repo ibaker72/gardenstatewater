@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { getConfig, quoteOrder, round2 } from '@/lib/pricing';
+import { getConfig, quoteOrder } from '@/lib/pricing';
 import { JUG_SKU } from '@/lib/data';
 import type { OrderStatus, PaymentMethod } from '@prisma/client';
 
@@ -224,8 +224,4 @@ export async function generateSubscriptionOrders(form: FormData) {
   revalidatePath('/orders');
   revalidatePath('/');
   redirect(`/orders?date=${dateStr}&generated=${created}`);
-}
-
-export function orderTotals(order: { subtotal: number; discount: number; deliveryFee: number }) {
-  return round2(order.subtotal - order.discount + order.deliveryFee);
 }
