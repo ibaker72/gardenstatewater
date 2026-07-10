@@ -126,6 +126,15 @@ Users → *Add user* (check "auto-confirm"), or reset its password there.
 the browser bundle at build time. Locally: restart `npm run dev`. On Vercel:
 trigger a redeploy after adding/changing env vars.
 
+**"Application error: a server-side exception has occurred" after login** —
+the database connection is failing. Open `/api/health` (as the owner) to see the
+raw error. The usual causes, in order: `DATABASE_URL` not set on Vercel; the
+pooler username missing its project suffix (**must** be
+`postgres.<project-ref>`, not `postgres`); an un-encoded special character in
+the password; or using the direct `db.<ref>.supabase.co` host, which is
+IPv6-only and unreachable from Vercel. Copy both pooler strings from
+Supabase → Connect, then redeploy.
+
 **Quick health check** — `GET /api/auth/check` returns
 `{ configured, ownerEmailSet, authenticated, email, isOwner }` for the current
 session, which pinpoints which piece is missing.
