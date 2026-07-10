@@ -11,9 +11,10 @@ import {
 } from '@/server/actions/orders';
 import { Badge, ORDER_STATUS_TONE, PageHeader } from '@/components/ui';
 
-export default async function OrderPage({ params }: { params: { id: string } }) {
+export default async function OrderPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const order = await prisma.order.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { customer: { include: { zone: true } }, items: true, invoice: true },
   });
   if (!order) notFound();
@@ -24,11 +25,11 @@ export default async function OrderPage({ params }: { params: { id: string } }) 
 
   async function toOutForDelivery() {
     'use server';
-    await setOrderStatus(params.id, 'OUT_FOR_DELIVERY');
+    await setOrderStatus(id, 'OUT_FOR_DELIVERY');
   }
   async function cancel() {
     'use server';
-    await cancelOrder(params.id);
+    await cancelOrder(id);
   }
 
   const refillCount = order.items

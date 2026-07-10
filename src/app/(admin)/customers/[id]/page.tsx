@@ -8,9 +8,10 @@ import { addCommLog, adjustCustomerJugs, setCustomerStatus } from '@/server/acti
 import { Badge, LinkButton, ORDER_STATUS_TONE, PageHeader } from '@/components/ui';
 import { STATUS_LABELS } from '@/lib/format';
 
-export default async function CustomerProfilePage({ params }: { params: { id: string } }) {
+export default async function CustomerProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const customer = await prisma.customer.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       zone: true,
       commLogs: { orderBy: { createdAt: 'desc' }, take: 20 },
@@ -34,13 +35,13 @@ export default async function CustomerProfilePage({ params }: { params: { id: st
     'use server';
     const delta = Number(form.get('delta') ?? 0);
     const reason = String(form.get('reason') ?? 'adjustment');
-    if (delta !== 0) await adjustCustomerJugs(params.id, delta, reason);
+    if (delta !== 0) await adjustCustomerJugs(id, delta, reason);
   }
 
   async function changeStatus(form: FormData) {
     'use server';
     const status = String(form.get('status')) as 'ACTIVE' | 'PAUSED' | 'SUSPENDED' | 'CHURNED';
-    await setCustomerStatus(params.id, status);
+    await setCustomerStatus(id, status);
   }
 
   return (

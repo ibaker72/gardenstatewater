@@ -10,9 +10,9 @@ export function supabaseConfigured() {
 }
 
 /** Server-side Supabase client bound to the request cookies. Null when auth isn't configured (local dev). */
-export function createClient() {
+export async function createClient() {
   if (!supabaseConfigured()) return null;
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -37,7 +37,7 @@ export function createClient() {
 
 /** The signed-in user's email, or null. In dev mode (no Supabase configured) returns the owner email. */
 export async function getSessionEmail(): Promise<string | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
   if (!supabase) return process.env.OWNER_EMAIL ?? 'dev@local';
   const {
     data: { user },

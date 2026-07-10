@@ -9,28 +9,29 @@ export default async function StatementPage({
   params,
   searchParams,
 }: {
-  params: { id: string };
-  searchParams: { month?: string }; // YYYY-MM
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ month?: string }>; // YYYY-MM
 }) {
-  const customer = await prisma.customer.findUnique({ where: { id: params.id } });
+  const [{ id }, { month }] = await Promise.all([params, searchParams]);
+  const customer = await prisma.customer.findUnique({ where: { id } });
   if (!customer) notFound();
 
-  const monthStr = searchParams.month ?? format(new Date(), 'yyyy-MM');
+  const monthStr = month ?? format(new Date(), 'yyyy-MM');
   const monthStart = startOfMonth(new Date(monthStr + '-01T00:00:00'));
   const monthEnd = endOfMonth(monthStart);
 
   const [priorCharges, priorPayments, orders, payments] = await Promise.all([
     prisma.order.aggregate({
-      where: { customerId: params.id, status: { in: ['DELIVERED', 'PAID'] }, deliveryDate: { lt: monthStart } },
+      where: { customerId: id, status: { in: ['DELIVERED', 'PAID'] }, deliveryDate: { lt: monthStart } },
       _sum: { total: true },
     }),
     prisma.payment.aggregate({
-      where: { customerId: params.id, receivedAt: { lt: monthStart } },
+      where: { customerId: id, receivedAt: { lt: monthStart } },
       _sum: { amount: true },
     }),
     prisma.order.findMany({
       where: {
-        customerId: params.id,
+        customerId: id,
         status: { in: ['DELIVERED', 'PAID'] },
         deliveryDate: { gte: monthStart, lte: monthEnd },
       },
@@ -38,7 +39,7 @@ export default async function StatementPage({
       orderBy: { deliveryDate: 'asc' },
     }),
     prisma.payment.findMany({
-      where: { customerId: params.id, receivedAt: { gte: monthStart, lte: monthEnd } },
+      where: { customerId: id, receivedAt: { gte: monthStart, lte: monthEnd } },
       orderBy: { receivedAt: 'asc' },
     }),
   ]);

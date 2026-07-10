@@ -5,9 +5,13 @@ import { checkoutUrlForInvoice } from '@/lib/stripe';
 export const dynamic = 'force-dynamic';
 
 /** Public payment entry point used in invoice emails and the customer portal. */
-export async function GET(_req: NextRequest, { params }: { params: { invoiceId: string } }) {
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ invoiceId: string }> },
+) {
+  const { invoiceId } = await params;
   const invoice = await prisma.invoice.findUnique({
-    where: { id: params.invoiceId },
+    where: { id: invoiceId },
     include: { customer: true },
   });
   if (!invoice) {

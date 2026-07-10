@@ -13,9 +13,10 @@ import {
 import { Badge, INVOICE_STATUS_TONE, PageHeader } from '@/components/ui';
 import { PrintButton } from '@/components/PrintButton';
 
-export default async function InvoicePage({ params }: { params: { id: string } }) {
+export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const invoice = await prisma.invoice.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       customer: true,
       orders: { include: { items: true }, orderBy: { deliveryDate: 'asc' } },

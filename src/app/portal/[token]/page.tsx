@@ -16,11 +16,12 @@ export default async function PortalPage({
   params,
   searchParams,
 }: {
-  params: { token: string };
-  searchParams: { paid?: string };
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ paid?: string }>;
 }) {
+  const [{ token }, { paid }] = await Promise.all([params, searchParams]);
   const customer = await prisma.customer.findUnique({
-    where: { portalToken: params.token },
+    where: { portalToken: token },
     include: {
       orders: {
         orderBy: { deliveryDate: 'desc' },
@@ -43,9 +44,9 @@ export default async function PortalPage({
   const openInvoice = customer.invoices[0];
   const canPayOnline = stripeConfigured() && openInvoice && openInvoice.total - openInvoice.amountPaid > 0;
 
-  const extra = requestExtraDelivery.bind(null, params.token);
-  const pauseResume = requestPauseOrResume.bind(null, params.token);
-  const contact = updateContactInfo.bind(null, params.token);
+  const extra = requestExtraDelivery.bind(null, token);
+  const pauseResume = requestPauseOrResume.bind(null, token);
+  const contact = updateContactInfo.bind(null, token);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12 dark:bg-navy-950">
@@ -61,7 +62,7 @@ export default async function PortalPage({
       </header>
 
       <main className="mx-auto max-w-lg space-y-4 px-4 pt-4">
-        {searchParams.paid && (
+        {paid && (
           <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
             ✓ Thanks! Your payment is processing — your balance will update shortly.
           </p>
