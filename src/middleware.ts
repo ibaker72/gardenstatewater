@@ -11,6 +11,7 @@ const PUBLIC_PREFIXES = [
   '/api/cron',
   '/api/portal',
   '/api/pay',
+  '/api/auth',
   '/sw.js',
   '/manifest.webmanifest',
   '/offline',
@@ -47,13 +48,22 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const ownerEmail = (process.env.OWNER_EMAIL ?? '').toLowerCase();
-  const isOwner = user?.email && user.email.toLowerCase() === ownerEmail;
+  const ownerEmail = (process.env.OWNER_EMAIL ?? '').trim().toLowerCase();
+  const isOwner = Boolean(
+    user?.email && ownerEmail && user.email.trim().toLowerCase() === ownerEmail
+  );
 
   if (!isOwner) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = '/login';
+    loginUrl.search = '';
     loginUrl.searchParams.set('next', pathname);
+    // Signed in but rejected — tell the login page why so it can explain
+    // (OWNER_EMAIL unset vs. signed in with a different account).
+    if (user?.email) {
+      loginUrl.searchParams.set('denied', user.email);
+      if (!ownerEmail) loginUrl.searchParams.set('reason', 'owner-unset');
+    }
     return NextResponse.redirect(loginUrl);
   }
 

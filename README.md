@@ -111,6 +111,25 @@ past the configured overdue limit (override = reactivate on the profile),
 birthday/loyalty emails, and your "Today you have X deliveries, $Y expected"
 summary. Also runnable on demand from **Settings**.
 
+## Troubleshooting
+
+**Sign-in "works" but bounces back to the login screen** — the middleware only
+admits the account whose email equals `OWNER_EMAIL`. Set
+`OWNER_EMAIL=<the email of your Supabase Auth user>` (exact match), then restart
+the dev server / redeploy. The login screen tells you exactly this (including
+which account you signed in as) if it happens.
+
+**"Invalid login credentials"** — create the user in Supabase → Authentication →
+Users → *Add user* (check "auto-confirm"), or reset its password there.
+
+**Env vars added but nothing changed** — `NEXT_PUBLIC_*` values are baked into
+the browser bundle at build time. Locally: restart `npm run dev`. On Vercel:
+trigger a redeploy after adding/changing env vars.
+
+**Quick health check** — `GET /api/auth/check` returns
+`{ configured, ownerEmailSet, authenticated, email, isOwner }` for the current
+session, which pinpoints which piece is missing.
+
 ## Scripts
 
 | Command | What it does |

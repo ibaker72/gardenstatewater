@@ -49,5 +49,6 @@ export async function isOwner(): Promise<boolean> {
   const email = await getSessionEmail();
   if (!email) return false;
   if (!supabaseConfigured()) return true; // local dev
-  return email.toLowerCase() === (process.env.OWNER_EMAIL ?? '').toLowerCase();
+  const ownerEmail = (process.env.OWNER_EMAIL ?? '').trim().toLowerCase();
+  return Boolean(ownerEmail) && email.trim().toLowerCase() === ownerEmail;
 }
