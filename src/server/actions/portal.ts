@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/lib/email';
 import { shortDate, upcomingDeliveryDates, WEEKDAYS } from '@/lib/format';
+import { diffAccountChanges, type AccountFields } from '@/lib/account-changes';
 
 /** All portal actions authorize by the unguessable portal token, never by id. */
 async function customerByToken(token: string) {
@@ -102,6 +103,81 @@ export async function updateContactInfo(token: string, form: FormData) {
     },
   });
   revalidatePath(`/portal/${token}`);
+}
+
+/**
+ * "Request a change" from the account page. Nothing is applied directly —
+ * the diff lands in the owner's inbox for review (spec: owner approves).
+ */
+export async function requestAccountChange(token: string, form: FormData) {
+  const customer = await customerByToken(token);
+  if (!customer || !customer.portalAccess) return;
+
+  const requested: AccountFields = {
+    name: (form.get('name') as string | null)?.trim() || customer.name,
+    phone: (form.get('phone') as string | null)?.trim() || null,
+    email: (form.get('email') as string | null)?.trim() || null,
+    address: (form.get('address') as string | null)?.trim() || customer.address,
+    city: (form.get('city') as string | null)?.trim() || null,
+    zip: (form.get('zip') as string | null)?.trim() || null,
+    deliveryNotes: (form.get('deliveryNotes') as string | null)?.trim() || null,
+  };
+  const changes = diffAccountChanges(customer, requested);
+  if (changes.length === 0) redirect(`/portal/${token}/account`);
+
+  const detail = changes.join('\n');
+  await prisma.portalRequest.create({
+    data: { customerId: customer.id, kind: 'CONTACT_UPDATE', detail },
+  });
+  await notifyOwner(
+    `✏️ ${customer.name} asked to update their info`,
+    `${customer.name} requested these changes:\n\n${detail}\n\nApply them from their profile if they look right.`,
+    customer.id
+  );
+  redirect(`/portal/${token}/account?requested=info`);
+}
+
+/** Pause with a date range — submitted for owner approval, not applied. */
+export async function requestPause(token: string, form: FormData) {
+  const customer = await customerByToken(token);
+  if (!customer || !customer.portalAccess) return;
+
+  const fromStr = String(form.get('from') ?? '');
+  const toStr = String(form.get('to') ?? '');
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(fromStr) ? new Date(fromStr + 'T00:00:00') : null;
+  const to = /^\d{4}-\d{2}-\d{2}$/.test(toStr) ? new Date(toStr + 'T00:00:00') : null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (!from || from < today || (to && to <= from)) redirect(`/portal/${token}/account`);
+
+  const detail = `Pause deliveries from ${shortDate(from)} ${to ? `to ${shortDate(to)}` : 'until further notice'}`;
+  await prisma.portalRequest.create({
+    data: { customerId: customer.id, kind: 'PAUSE', detail, requestedDate: from },
+  });
+  await notifyOwner(
+    `⏸️ ${customer.name} asked to pause deliveries`,
+    `${customer.name} (${customer.address}) requested:\n\n${detail}\n\nApprove it from the Portal requests page (pause them on their profile).`,
+    customer.id
+  );
+  redirect(`/portal/${token}/account?requested=pause`);
+}
+
+/** Cancel service — confirmed client-side, alerts the owner immediately. */
+export async function requestCancel(token: string, form: FormData) {
+  const customer = await customerByToken(token);
+  if (!customer || !customer.portalAccess) return;
+
+  const reason = (form.get('reason') as string | null)?.trim() || null;
+  const detail = `Wants to cancel service${reason ? ` — "${reason}"` : ''}`;
+  await prisma.portalRequest.create({
+    data: { customerId: customer.id, kind: 'CANCEL', detail },
+  });
+  await notifyOwner(
+    `🚨 ${customer.name} wants to cancel service`,
+    `${customer.name} (${customer.address}, ${customer.phone ?? 'no phone'}) asked to cancel their service.${reason ? `\n\nReason: "${reason}"` : ''}\n\nReach out to them — maybe it's fixable.`,
+    customer.id
+  );
+  redirect(`/portal/${token}/account?requested=cancel`);
 }
 
 export async function resolvePortalRequest(id: string) {

@@ -12,7 +12,7 @@ import { customerBalance } from '@/lib/data';
 import { getConfig } from '@/lib/pricing';
 import { friendlyDay, money, PLAN_LABELS, shortDate } from '@/lib/format';
 import { stripeConfigured } from '@/lib/stripe';
-import { requestPauseOrResume, updateContactInfo } from '@/server/actions/portal';
+import { requestPauseOrResume } from '@/server/actions/portal';
 import { SignOutButton } from '@/components/portal/SignOutButton';
 
 export const dynamic = 'force-dynamic';
@@ -63,7 +63,6 @@ export default async function PortalHomePage({
       : '#contact';
 
   const pauseResume = requestPauseOrResume.bind(null, token);
-  const contact = updateContactInfo.bind(null, token);
 
   const firstName = customer.name.split(' ')[0];
 
@@ -205,7 +204,7 @@ export default async function PortalHomePage({
           <a href={`/portal/${token}/request`} className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
             <CalendarPlus size={20} /> Extra delivery
           </a>
-          <a href="#request" className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
+          <a href={`/portal/${token}/account#pause`} className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
             <PauseCircle size={20} /> Pause service
           </a>
           <a href={contactHref} className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
@@ -223,12 +222,12 @@ export default async function PortalHomePage({
             <CalendarPlus size={20} /> Request a delivery
           </a>
           {customer.status === 'ACTIVE' && (
-            <form action={pauseResume} className="mt-3">
-              <input type="hidden" name="kind" value="PAUSE" />
-              <button className={`${quickAction} w-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50`}>
-                <PauseCircle size={20} /> Pause my service
-              </button>
-            </form>
+            <a
+              href={`/portal/${token}/account#pause`}
+              className={`${quickAction} mt-3 w-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50`}
+            >
+              <PauseCircle size={20} /> Pause my service
+            </a>
           )}
           <p className="mt-3 text-sm text-slate-400">
             We&apos;ll confirm your request within a couple of hours.
@@ -270,37 +269,22 @@ export default async function PortalHomePage({
           )}
         </section>
 
-        {/* Contact info */}
+        {/* Account summary */}
         <section className={card} id="contact">
           <h2 className="text-lg font-semibold text-navy-900">Your info</h2>
           <p className="mt-0.5 text-base text-slate-500">
             {customer.address}
             {customer.city ? `, ${customer.city}` : ''} · {PLAN_LABELS[customer.plan]} plan
           </p>
-          <form action={contact} className="mt-3 space-y-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-500">Phone</label>
-              <input
-                name="phone"
-                type="tel"
-                inputMode="tel"
-                defaultValue={customer.phone ?? ''}
-                className="h-14 w-full rounded-2xl border border-aqua-200 bg-white px-5 text-base text-navy-900 focus:border-aqua-500 focus:outline-none focus:ring-4 focus:ring-aqua-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-500">Email</label>
-              <input
-                name="email"
-                type="email"
-                defaultValue={customer.email ?? ''}
-                className="h-14 w-full rounded-2xl border border-aqua-200 bg-white px-5 text-base text-navy-900 focus:border-aqua-500 focus:outline-none focus:ring-4 focus:ring-aqua-100"
-              />
-            </div>
-            <button className={`${quickAction} w-full border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
-              Update my info
-            </button>
-          </form>
+          <p className="mt-0.5 text-base text-slate-500">
+            {customer.phone ?? 'No phone on file'} · {customer.email ?? 'no email on file'}
+          </p>
+          <a
+            href={`/portal/${token}/account`}
+            className={`${quickAction} mt-4 w-full border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}
+          >
+            Manage my account
+          </a>
         </section>
 
         <p className="pt-2 text-center text-sm text-slate-400">

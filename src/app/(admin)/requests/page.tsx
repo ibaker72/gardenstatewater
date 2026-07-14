@@ -9,7 +9,8 @@ const KIND_LABEL: Record<string, string> = {
   EXTRA_DELIVERY: 'Extra delivery',
   PAUSE: 'Pause service',
   RESUME: 'Resume service',
-  CONTACT_UPDATE: 'Contact update',
+  CONTACT_UPDATE: 'Info change',
+  CANCEL: 'Cancel service',
   OTHER: 'Other',
 };
 
@@ -33,7 +34,9 @@ export default async function RequestsPage() {
               <li key={r.id} className="card flex items-center gap-3 p-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={r.kind === 'EXTRA_DELIVERY' ? 'blue' : 'amber'}>{KIND_LABEL[r.kind] ?? r.kind}</Badge>
+                    <Badge tone={r.kind === 'EXTRA_DELIVERY' ? 'blue' : r.kind === 'CANCEL' ? 'red' : 'amber'}>
+                      {KIND_LABEL[r.kind] ?? r.kind}
+                    </Badge>
                     <Link href={`/customers/${r.customerId}`} className="font-medium hover:underline">
                       {r.customer.name}
                     </Link>
