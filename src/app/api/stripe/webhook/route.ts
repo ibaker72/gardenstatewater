@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type Stripe from 'stripe';
 import { cleanEnv } from '@/lib/env';
+import { sendEmail } from '@/lib/email';
+import { money } from '@/lib/format';
+import { prisma } from '@/lib/prisma';
 import { getStripe } from '@/lib/stripe';
-import { applyStripeCheckoutPayment } from '@/lib/payments';
+import { applyStripeBalancePayment, applyStripeCheckoutPayment } from '@/lib/payments';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,17 +52,38 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
-        const invoiceId = session.metadata?.invoiceId;
+        const meta = session.metadata ?? {};
+        if (session.payment_status !== 'paid') {
+          console.log(
+            `[stripe-webhook] ${event.type} ${event.id}: session ${session.id} payment_status=${session.payment_status}; ignoring.`
+          );
+          break;
+        }
+
+        if (meta.kind === 'balance' && meta.invoices) {
+          // "Pay All" session: metadata carries [[invoiceId, cents], …].
+          const entries = parseBalanceEntries(meta.invoices);
+          if (!entries) {
+            console.warn(
+              `[stripe-webhook] ${event.type} ${event.id}: session ${session.id} has malformed balance metadata; ignoring.`
+            );
+            break;
+          }
+          const result = await applyStripeBalancePayment({ sessionId: session.id, entries });
+          console.log(
+            `[stripe-webhook] ${event.type} ${event.id}: balance session → applied ${result.applied}, duplicates ${result.duplicates}.`
+          );
+          if (result.applied > 0 && meta.customerId) {
+            await sendPaymentReceipt(meta.customerId, session.amount_total ?? 0);
+          }
+          break;
+        }
+
+        const invoiceId = meta.invoiceId;
         if (!invoiceId) {
           // Not one of ours (or metadata was lost) — acknowledge, don't crash.
           console.warn(
             `[stripe-webhook] ${event.type} ${event.id}: session ${session.id} has no invoiceId metadata; ignoring.`
-          );
-          break;
-        }
-        if (session.payment_status !== 'paid') {
-          console.log(
-            `[stripe-webhook] ${event.type} ${event.id}: session ${session.id} payment_status=${session.payment_status}; ignoring.`
           );
           break;
         }
@@ -71,6 +95,13 @@ export async function POST(req: NextRequest) {
         console.log(
           `[stripe-webhook] ${event.type} ${event.id}: invoice ${invoiceId} → ${result}.`
         );
+        if (result === 'applied') {
+          const invoice = await prisma.invoice.findUnique({
+            where: { id: invoiceId },
+            select: { customerId: true },
+          });
+          if (invoice) await sendPaymentReceipt(invoice.customerId, session.amount_total ?? 0);
+        }
         break;
       }
       default:
@@ -96,4 +127,44 @@ export function GET() {
     { error: 'Method Not Allowed' },
     { status: 405, headers: { Allow: 'POST' } }
   );
+}
+
+/** Parse "Pay All" metadata: a JSON array of [invoiceId, cents] pairs. */
+function parseBalanceEntries(raw: string): { invoiceId: string; amountCents: number }[] | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    const entries = parsed.map((pair) => {
+      if (!Array.isArray(pair) || typeof pair[0] !== 'string' || typeof pair[1] !== 'number') {
+        throw new Error('bad entry');
+      }
+      return { invoiceId: pair[0], amountCents: Math.round(pair[1]) };
+    });
+    return entries.every((e) => e.amountCents > 0) ? entries : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Emailed receipt after a successful online payment. Failures only log — never fail the webhook. */
+async function sendPaymentReceipt(customerId: string, amountCents: number) {
+  try {
+    const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+    if (!customer?.email) return;
+    await sendEmail({
+      to: customer.email,
+      subject: `Payment received — thank you! (${money(amountCents / 100)})`,
+      body: `Hi ${customer.name.split(' ')[0]},
+
+We received your online payment of ${money(amountCents / 100)}. Your balance is updated — you can see it any time in your portal.
+
+Thanks for being a Garden State Water customer! 💧`,
+      type: 'OTHER',
+      customerId,
+    });
+  } catch (e) {
+    console.error(
+      `[stripe-webhook] Receipt email failed for customer ${customerId}: ${e instanceof Error ? e.message : e}`
+    );
+  }
 }

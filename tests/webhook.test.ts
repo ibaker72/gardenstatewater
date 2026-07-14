@@ -85,6 +85,25 @@ describe('POST /api/stripe/webhook', () => {
     assert.deepEqual(await res.json(), { received: true });
   });
 
+  it('acknowledges a Pay-All session with malformed metadata instead of crashing', async () => {
+    const res = await POST(
+      signedRequest({
+        id: 'evt_test_bad_balance',
+        object: 'event',
+        type: 'checkout.session.completed',
+        data: {
+          object: {
+            id: 'cs_test_bad_balance',
+            payment_status: 'paid',
+            metadata: { kind: 'balance', customerId: 'cus_x', invoices: 'not-json[' },
+          },
+        },
+      })
+    );
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { received: true });
+  });
+
   it('acknowledges an unpaid checkout session without touching the database', async () => {
     const res = await POST(
       signedRequest({

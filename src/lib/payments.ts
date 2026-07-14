@@ -44,6 +44,40 @@ export async function applyInvoicePayment(
 export type StripeCheckoutPaymentResult = 'applied' | 'duplicate';
 
 /**
+ * Idempotently apply a multi-invoice ("pay all") Stripe Checkout session.
+ * Each invoice gets its own payment row referenced `<sessionId>:<invoiceId>`,
+ * so redelivered webhooks skip exactly the invoices already recorded.
+ */
+export async function applyStripeBalancePayment(
+  input: { sessionId: string; entries: { invoiceId: string; amountCents: number }[] },
+  db: PrismaClient = prisma
+): Promise<{ applied: number; duplicates: number }> {
+  let applied = 0;
+  let duplicates = 0;
+  for (const entry of input.entries) {
+    const reference = `${input.sessionId}:${entry.invoiceId}`;
+    const result = await db.$transaction(async (tx) => {
+      const existing = await tx.payment.findFirst({
+        where: { method: 'STRIPE', reference },
+        select: { id: true },
+      });
+      if (existing) return 'duplicate' as const;
+      await applyPaymentInTx(
+        tx,
+        entry.invoiceId,
+        round2(entry.amountCents / 100),
+        'STRIPE',
+        reference
+      );
+      return 'applied' as const;
+    });
+    if (result === 'applied') applied++;
+    else duplicates++;
+  }
+  return { applied, duplicates };
+}
+
+/**
  * Idempotently record a completed Stripe Checkout session against an invoice.
  * Stripe retries webhook deliveries and can send the same event more than
  * once — the session id is used as the payment reference, and a second

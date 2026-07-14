@@ -157,30 +157,12 @@ export default async function PortalHomePage({
               </p>
             ))}
 
-          {customer.invoices.length > 0 && (
-            <ul className="mt-4 divide-y divide-slate-100 border-t border-slate-100 text-base">
-              {customer.invoices.map((inv) => (
-                <li key={inv.id} className="flex items-center justify-between gap-2 py-2.5">
-                  <div>
-                    <div className="font-medium text-navy-900">Invoice #{inv.number}</div>
-                    <div className={`text-sm ${inv.status === 'OVERDUE' ? 'text-red-600' : 'text-slate-500'}`}>
-                      {inv.status === 'OVERDUE' ? 'Overdue — was ' : ''}due {shortDate(inv.dueDate)}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-semibold tabular-nums text-navy-900">
-                      {money(inv.total - inv.amountPaid)}
-                    </span>
-                    {stripeConfigured() && inv.total - inv.amountPaid > 0 && (
-                      <a href={`/api/pay/${inv.id}`} className="font-semibold text-aqua-700 hover:underline">
-                        Pay
-                      </a>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <a
+            href={`/portal/${token}/pay`}
+            className="mt-3 inline-block text-base font-semibold text-aqua-700 hover:underline"
+          >
+            See my bill &amp; payment history →
+          </a>
         </section>
 
         {/* Next delivery + jugs */}
@@ -227,11 +209,11 @@ export default async function PortalHomePage({
         {/* Quick actions */}
         <section className="grid grid-cols-2 gap-3">
           {canPayOnline ? (
-            <a href={`/api/pay/${openInvoice.id}`} className={`${quickAction} bg-aqua-500 text-white hover:bg-aqua-600`}>
+            <a href={`/portal/${token}/pay`} className={`${quickAction} bg-aqua-500 text-white hover:bg-aqua-600`}>
               <CreditCard size={20} /> Pay balance
             </a>
           ) : (
-            <a href="#bill" className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
+            <a href={`/portal/${token}/pay`} className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
               <CreditCard size={20} /> My bill
             </a>
           )}
