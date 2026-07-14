@@ -72,58 +72,98 @@ export async function setOrderStatus(orderId: string, status: OrderStatus) {
 }
 
 /**
+ * Deliver one order inside a transaction: moves jugs between stock and the
+ * customer's site and records the empties picked up. Shared by the single
+ * "mark delivered" flow and the bulk end-of-day action.
+ */
+async function deliverOrderInTx(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  orderId: string,
+  jugsReturned: number
+): Promise<boolean> {
+  const order = await tx.order.findUniqueOrThrow({
+    where: { id: orderId },
+    include: { items: true },
+  });
+  if (order.status === 'DELIVERED' || order.status === 'PAID' || order.status === 'CANCELLED') {
+    return false;
+  }
+
+  const refills = order.items
+    .filter((i) => i.productType === 'JUG_REFILL')
+    .reduce((s, i) => s + i.quantity, 0);
+  const purchased = order.items
+    .filter((i) => i.productType === 'JUG_PURCHASE')
+    .reduce((s, i) => s + i.quantity, 0);
+
+  await tx.order.update({
+    where: { id: orderId },
+    data: { status: 'DELIVERED', deliveredAt: new Date(), jugsReturned },
+  });
+
+  await tx.customer.update({
+    where: { id: order.customerId },
+    data: {
+      jugsWithCustomer: { increment: refills - jugsReturned },
+      jugDeposits: { increment: purchased },
+    },
+  });
+
+  const jug = await tx.inventoryItem.findUnique({ where: { sku: JUG_SKU } });
+  if (jug) {
+    const stockDelta = jugsReturned - refills - purchased; // empties in, fulls out
+    if (stockDelta !== 0) {
+      await tx.inventoryItem.update({
+        where: { id: jug.id },
+        data: { quantity: { increment: stockDelta } },
+      });
+      await tx.inventoryMovement.create({
+        data: { itemId: jug.id, delta: stockDelta, reason: 'delivery', reference: orderId },
+      });
+    }
+  }
+  return true;
+}
+
+/**
  * Mark an order delivered: moves jugs between stock and the customer's site
  * and records the empties picked up.
  */
 export async function markDelivered(orderId: string, form: FormData) {
   const jugsReturned = Math.max(0, num(form, 'jugsReturned'));
 
-  await prisma.$transaction(async (tx) => {
-    const order = await tx.order.findUniqueOrThrow({
-      where: { id: orderId },
-      include: { items: true },
-    });
-    if (order.status === 'DELIVERED' || order.status === 'PAID') return;
-
-    const refills = order.items
-      .filter((i) => i.productType === 'JUG_REFILL')
-      .reduce((s, i) => s + i.quantity, 0);
-    const purchased = order.items
-      .filter((i) => i.productType === 'JUG_PURCHASE')
-      .reduce((s, i) => s + i.quantity, 0);
-
-    await tx.order.update({
-      where: { id: orderId },
-      data: { status: 'DELIVERED', deliveredAt: new Date(), jugsReturned },
-    });
-
-    await tx.customer.update({
-      where: { id: order.customerId },
-      data: {
-        jugsWithCustomer: { increment: refills - jugsReturned },
-        jugDeposits: { increment: purchased },
-      },
-    });
-
-    const jug = await tx.inventoryItem.findUnique({ where: { sku: JUG_SKU } });
-    if (jug) {
-      const stockDelta = jugsReturned - refills - purchased; // empties in, fulls out
-      if (stockDelta !== 0) {
-        await tx.inventoryItem.update({
-          where: { id: jug.id },
-          data: { quantity: { increment: stockDelta } },
-        });
-        await tx.inventoryMovement.create({
-          data: { itemId: jug.id, delta: stockDelta, reason: 'delivery', reference: orderId },
-        });
-      }
-    }
-  });
+  await prisma.$transaction((tx) => deliverOrderInTx(tx, orderId, jugsReturned).then(() => {}));
 
   revalidatePath('/orders');
   revalidatePath(`/orders/${orderId}`);
   revalidatePath('/inventory');
   revalidatePath('/');
+}
+
+/**
+ * End-of-day bulk action: mark every still-open order on a date as delivered.
+ * Empties returned aren't known per stop here, so they're recorded as 0 —
+ * adjust per customer afterwards if needed (profile → Jugs → adjust).
+ */
+export async function markAllDeliveredForDate(form: FormData) {
+  const dateStr = String(form.get('date'));
+  const date = new Date(dateStr + 'T00:00:00');
+
+  const open = await prisma.order.findMany({
+    where: { deliveryDate: date, status: { in: ['SCHEDULED', 'OUT_FOR_DELIVERY'] } },
+    select: { id: true },
+  });
+
+  let delivered = 0;
+  for (const { id } of open) {
+    const ok = await prisma.$transaction((tx) => deliverOrderInTx(tx, id, 0));
+    if (ok) delivered++;
+  }
+
+  revalidatePath('/orders');
+  revalidatePath('/inventory');
+  revalidatePath('/');
+  redirect(`/orders?date=${dateStr}&delivered=${delivered}`);
 }
 
 /** Cash/Venmo/etc. collected on the spot — records the payment and closes the order. */

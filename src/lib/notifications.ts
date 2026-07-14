@@ -57,8 +57,13 @@ export async function runDailyAutomation(now = new Date()): Promise<AutomationRe
   }
 
   // ── 2. Flag overdue invoices + remind at 7/14/30 days ─────────────────────
+  // A week of grace: invoices flip to OVERDUE once they're 7+ days past due.
+  const OVERDUE_GRACE_DAYS = 7;
   const flagged = await prisma.invoice.updateMany({
-    where: { status: { in: ['SENT', 'PARTIALLY_PAID'] }, dueDate: { lt: now } },
+    where: {
+      status: { in: ['SENT', 'PARTIALLY_PAID'] },
+      dueDate: { lt: addDays(now, -OVERDUE_GRACE_DAYS) },
+    },
     data: { status: 'OVERDUE' },
   });
   result.overdueFlagged = flagged.count;

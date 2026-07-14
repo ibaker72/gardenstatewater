@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { addMonths, endOfMonth, format, startOfMonth } from 'date-fns';
+import { getConfig } from '@/lib/pricing';
 import { prisma } from '@/lib/prisma';
 import { money, shortDate } from '@/lib/format';
 import { PageHeader } from '@/components/ui';
@@ -13,7 +14,10 @@ export default async function StatementPage({
   searchParams: Promise<{ month?: string }>; // YYYY-MM
 }) {
   const [{ id }, { month }] = await Promise.all([params, searchParams]);
-  const customer = await prisma.customer.findUnique({ where: { id } });
+  const [customer, config] = await Promise.all([
+    prisma.customer.findUnique({ where: { id } }),
+    getConfig(),
+  ]);
   if (!customer) notFound();
 
   const monthStr = month ?? format(new Date(), 'yyyy-MM');
@@ -87,7 +91,7 @@ export default async function StatementPage({
       <div className="card max-w-3xl p-6">
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <div className="text-lg font-bold text-navy-900 dark:text-white">Garden State Water</div>
+            <div className="text-lg font-bold text-navy-900 dark:text-white">{config.businessName}</div>
             <div className="text-sm text-slate-500">Statement — {format(monthStart, 'MMMM yyyy')}</div>
           </div>
           <div className="text-right text-sm">

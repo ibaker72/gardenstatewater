@@ -65,6 +65,8 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
         </Badge>
         <Badge tone="blue">{PLAN_LABELS[customer.plan]}</Badge>
         {customer.accountType === 'COMMERCIAL' && <Badge tone="navy">Commercial</Badge>}
+        {customer.accountType === 'EVENT' && <Badge tone="navy">Event</Badge>}
+        {customer.dispenserRental && <Badge tone="blue">Dispenser rental</Badge>}
         {atRisk && <Badge tone="amber">At risk — no delivery in {daysSince ?? '30+'} days</Badge>}
       </div>
 
@@ -117,6 +119,10 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
             <div>
               <dt className="text-xs text-slate-500">Jugs / delivery</dt>
               <dd>{customer.planJugs}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-slate-500">Prefers to pay</dt>
+              <dd>{customer.paymentPref ? customer.paymentPref.charAt(0) + customer.paymentPref.slice(1).toLowerCase() : '—'}</dd>
             </div>
             <div>
               <dt className="text-xs text-slate-500">Portal link</dt>

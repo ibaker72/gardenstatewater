@@ -1,11 +1,12 @@
 /**
- * Seed: 3 zones, 5 customers, 12 orders across the week, inventory,
- * a supplier with purchase history, competitor prices, and a couple of
- * invoices/payments so every dashboard widget has something to show.
+ * Seed: 3 zones, 8 customers (residential / commercial / event), 20 orders,
+ * 7 invoices (2 overdue · 3 paid · 2 pending), inventory (50 jugs owned =
+ * 20 in stock + 30 at customers), a supplier with purchase history, and
+ * 2 competitors — so every dashboard widget has something to show.
  *
  * Run with: npm run db:seed
  */
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type Customer, type Order } from '@prisma/client';
 import { addDays } from 'date-fns';
 
 const prisma = new PrismaClient();
@@ -15,6 +16,8 @@ const day = (offset: number) => {
   d.setHours(0, 0, 0, 0);
   return d;
 };
+
+const JUG_PRICE = 8;
 
 async function main() {
   console.log('Seeding Garden State Water…');
@@ -40,25 +43,41 @@ async function main() {
     prisma.pricingConfig.deleteMany(),
   ]);
 
-  // ── Pricing config ─────────────────────────────────────────────
+  // ── Pricing config (NJ-realistic) ──────────────────────────────
   await prisma.pricingConfig.create({
-    data: { id: 'default', jugRefillPrice: 8, jugPurchasePrice: 35, dispenserRentalPrice: 7 },
+    data: {
+      id: 'default',
+      jugRefillPrice: JUG_PRICE,
+      jugPurchasePrice: 35,
+      dispenserRentalPrice: 7,
+      bottleCasePrice: 6,
+      weeklyDiscountPct: 10,
+      biweeklyDiscountPct: 5,
+      bulkBuyQty: 10,
+      bulkFreeQty: 1,
+      costPerGallon: 0.35,
+      gasCostPerMile: 0.2,
+      businessName: 'Garden State Water',
+      businessPhone: '(908) 555-0100',
+      businessEmail: 'hello@gardenstatewater.com',
+      businessAddress: 'Newark, NJ',
+    },
   });
 
   // ── Zones ──────────────────────────────────────────────────────
   const [zone1, zone2, zone3] = await Promise.all([
     prisma.zone.create({
-      data: { name: 'Zone 1 — Newark core', deliveryFee: 0, zips: ['07102', '07103', '07104'] },
+      data: { name: 'Zone 1 — Newark core', deliveryFee: 0, zips: ['07102', '07103', '07104', '07105'] },
     }),
     prisma.zone.create({
       data: { name: 'Zone 2 — East Orange / Irvington', deliveryFee: 2, zips: ['07017', '07018', '07111'] },
     }),
     prisma.zone.create({
-      data: { name: 'Zone 3 — Elizabeth / Union', deliveryFee: 5, zips: ['07201', '07202', '07083'] },
+      data: { name: 'Zone 3 — Elizabeth / Union', deliveryFee: 5, zips: ['07201', '07202', '07208', '07083'] },
     }),
   ]);
 
-  // ── Customers ──────────────────────────────────────────────────
+  // ── Customers (8 — jugsWithCustomer totals 30) ─────────────────
   const maria = await prisma.customer.create({
     data: {
       name: 'Maria Alvarez',
@@ -73,6 +92,7 @@ async function main() {
       preferredDay: 1,
       zoneId: zone1.id,
       jugsWithCustomer: 3,
+      paymentPref: 'VENMO',
       lat: 40.7282,
       lng: -74.1568,
       startedAt: addDays(new Date(), -220),
@@ -93,6 +113,7 @@ async function main() {
       preferredDay: 1,
       zoneId: zone2.id,
       jugsWithCustomer: 5,
+      paymentPref: 'CASH',
       lat: 40.7623,
       lng: -74.2205,
       startedAt: addDays(new Date(), -400),
@@ -112,6 +133,8 @@ async function main() {
       preferredDay: 3,
       zoneId: zone3.id,
       jugsWithCustomer: 2,
+      dispenserRental: true,
+      paymentPref: 'CASHAPP',
       lat: 40.6668,
       lng: -74.2263,
       startedAt: addDays(new Date(), -150),
@@ -131,6 +154,7 @@ async function main() {
       preferredDay: 4,
       zoneId: zone2.id,
       jugsWithCustomer: 6,
+      paymentPref: 'STRIPE',
       lat: 40.7324,
       lng: -74.2107,
       startedAt: addDays(new Date(), -320),
@@ -154,10 +178,71 @@ async function main() {
       startedAt: addDays(new Date(), -90),
     },
   });
+  const kim = await prisma.customer.create({
+    data: {
+      name: "Kim's Deli & Grocery",
+      phone: '(973) 555-0188',
+      email: 'kimsdeli@example.com',
+      address: '318 Broad St',
+      city: 'Newark',
+      zip: '07104',
+      accountType: 'COMMERCIAL',
+      deliveryNotes: 'Use the service door on Gouverneur St',
+      plan: 'MONTHLY',
+      planJugs: 4,
+      preferredDay: 2,
+      zoneId: zone1.id,
+      jugsWithCustomer: 6,
+      dispenserRental: true,
+      paymentPref: 'ZELLE',
+      lat: 40.7589,
+      lng: -74.1701,
+      startedAt: addDays(new Date(), -260),
+    },
+  });
+  const rosa = await prisma.customer.create({
+    data: {
+      name: 'Rosa Nguyen',
+      phone: '(908) 555-0151',
+      email: 'rosa.n@example.com',
+      address: '140 Salem Rd',
+      city: 'Union',
+      zip: '07083',
+      plan: 'WEEKLY',
+      planJugs: 2,
+      preferredDay: 5,
+      zoneId: zone3.id,
+      jugsWithCustomer: 4,
+      paymentPref: 'CASH',
+      lat: 40.6976,
+      lng: -74.2632,
+      startedAt: addDays(new Date(), -60),
+    },
+  });
+  const diaz = await prisma.customer.create({
+    data: {
+      name: 'Diaz Family Reunion',
+      phone: '(201) 555-0175',
+      email: 'ldiaz@example.com',
+      address: '10 Watsessing Park Dr',
+      city: 'East Orange',
+      zip: '07017',
+      accountType: 'EVENT',
+      deliveryNotes: 'Annual park event — call on arrival, pavilion #2',
+      plan: 'ON_DEMAND',
+      planJugs: 10,
+      zoneId: zone2.id,
+      jugsWithCustomer: 4,
+      paymentPref: 'VENMO',
+      lat: 40.7534,
+      lng: -74.2001,
+      startedAt: addDays(new Date(), -35),
+    },
+  });
 
-  // ── Inventory & supplier ───────────────────────────────────────
+  // ── Inventory & supplier (50 owned = 20 in stock + 30 at customers) ──
   const jugItem = await prisma.inventoryItem.create({
-    data: { sku: 'JUG_5GAL', name: '5-gallon jug', category: 'jug', quantity: 42, unitCost: 6.5, reorderThreshold: 20, reorderAmount: 30 },
+    data: { sku: 'JUG_5GAL', name: '5-gallon jug', category: 'jug', quantity: 20, unitCost: 6.5, reorderThreshold: 15, reorderAmount: 30 },
   });
   await prisma.inventoryItem.createMany({
     data: [
@@ -202,8 +287,8 @@ async function main() {
     ],
   });
 
-  // ── Orders ─────────────────────────────────────────────────────
-  const mkItems = (jugs: number, price = 8) => ({
+  // ── Orders (13 past + 7 today/upcoming = 20) ───────────────────
+  const mkItems = (jugs: number, price = JUG_PRICE) => ({
     create: [
       {
         productType: 'JUG_REFILL' as const,
@@ -215,19 +300,33 @@ async function main() {
     ],
   });
 
-  // Delivered history (past two weeks)
-  const pastOrders = [
-    { customer: maria, offset: -14, jugs: 3, discountPct: 10, fee: 0, paid: true },
+  type PastOrder = {
+    customer: Customer;
+    offset: number;
+    jugs: number;
+    discountPct: number;
+    fee: number;
+    paid: boolean;
+  };
+  // paid=false orders stay DELIVERED — they're covered by invoices below.
+  const pastOrders: PastOrder[] = [
+    { customer: maria, offset: -21, jugs: 3, discountPct: 10, fee: 0, paid: true },
+    { customer: maria, offset: -14, jugs: 3, discountPct: 10, fee: 0, paid: false }, // → PAID invoice
     { customer: maria, offset: -7, jugs: 3, discountPct: 10, fee: 0, paid: true },
     { customer: troy, offset: -14, jugs: 5, discountPct: 10, fee: 2, paid: true },
-    { customer: troy, offset: -7, jugs: 5, discountPct: 10, fee: 2, paid: false },
-    { customer: denise, offset: -12, jugs: 2, discountPct: 5, fee: 5, paid: true },
-    { customer: sunrise, offset: -8, jugs: 6, discountPct: 10, fee: 2, paid: false },
+    { customer: troy, offset: -7, jugs: 5, discountPct: 10, fee: 2, paid: false }, // → OVERDUE invoice
+    { customer: denise, offset: -12, jugs: 2, discountPct: 5, fee: 5, paid: false }, // → PAID invoice
+    { customer: sunrise, offset: -8, jugs: 6, discountPct: 10, fee: 2, paid: false }, // → OVERDUE invoice
     { customer: jerome, offset: -45, jugs: 2, discountPct: 0, fee: 0, paid: true },
+    { customer: kim, offset: -28, jugs: 4, discountPct: 0, fee: 0, paid: true },
+    { customer: kim, offset: -5, jugs: 4, discountPct: 0, fee: 0, paid: false }, // → SENT invoice
+    { customer: rosa, offset: -13, jugs: 2, discountPct: 10, fee: 5, paid: true },
+    { customer: rosa, offset: -6, jugs: 2, discountPct: 10, fee: 5, paid: false }, // → SENT invoice
+    { customer: diaz, offset: -30, jugs: 10, discountPct: 0, fee: 2, paid: false }, // → PAID invoice
   ];
-  const madeOrders = [];
+  const madeOrders: Order[] = [];
   for (const o of pastOrders) {
-    const subtotal = o.jugs * 8;
+    const subtotal = o.jugs * JUG_PRICE;
     const discount = Math.round(subtotal * o.discountPct) / 100;
     const total = subtotal - discount + o.fee;
     madeOrders.push(
@@ -235,11 +334,11 @@ async function main() {
         data: {
           customerId: o.customer.id,
           deliveryDate: day(o.offset),
-          deliveredAt: addDays(day(o.offset), 0),
+          deliveredAt: day(o.offset),
           status: o.paid ? 'PAID' : 'DELIVERED',
           paymentMethod: o.paid ? 'CASH' : null,
           jugsReturned: o.jugs,
-          fromSubscription: true,
+          fromSubscription: o.customer.plan !== 'ON_DEMAND',
           subtotal,
           discount,
           deliveryFee: o.fee,
@@ -250,7 +349,7 @@ async function main() {
     );
   }
 
-  // Payments for the paid orders
+  // Direct payments for orders paid on the spot (no invoice)
   for (const [i, o] of pastOrders.entries()) {
     if (!o.paid) continue;
     await prisma.payment.create({
@@ -259,39 +358,74 @@ async function main() {
         method: i % 2 === 0 ? 'CASH' : 'VENMO',
         amount: madeOrders[i].total,
         reference: i % 2 === 0 ? null : '@' + o.customer.name.split(' ')[0].toLowerCase(),
-        receivedAt: addDays(day(o.offset), 0),
+        receivedAt: day(o.offset),
         note: `Order #${madeOrders[i].number}`,
       },
     });
   }
 
-  // An open invoice for Sunrise Daycare (delivered, unpaid, 3 days overdue)
-  const sunriseOrder = madeOrders[5];
-  await prisma.invoice.create({
-    data: {
-      customerId: sunrise.id,
-      status: 'OVERDUE',
-      issueDate: addDays(new Date(), -8),
-      dueDate: addDays(new Date(), -3),
-      subtotal: sunriseOrder.subtotal,
-      discount: sunriseOrder.discount,
-      deliveryFees: sunriseOrder.deliveryFee,
-      total: sunriseOrder.total,
-      sentAt: addDays(new Date(), -8),
-      orders: { connect: { id: sunriseOrder.id } },
-    },
-  });
+  // ── Invoices: 2 overdue · 3 paid · 2 pending ───────────────────
+  const orderFor = (customer: Customer, offset: number) =>
+    madeOrders[pastOrders.findIndex((o) => o.customer.id === customer.id && o.offset === offset)];
 
-  // Today's + upcoming deliveries
+  const mkInvoice = async (
+    customer: Customer,
+    order: Order,
+    opts: { status: 'OVERDUE' | 'PAID' | 'SENT'; issuedDaysAgo: number; dueOffset: number }
+  ) => {
+    const invoice = await prisma.invoice.create({
+      data: {
+        customerId: customer.id,
+        status: opts.status,
+        issueDate: day(-opts.issuedDaysAgo),
+        dueDate: day(opts.dueOffset),
+        subtotal: order.subtotal,
+        discount: order.discount,
+        deliveryFees: order.deliveryFee,
+        total: order.total,
+        amountPaid: opts.status === 'PAID' ? order.total : 0,
+        sentAt: day(-opts.issuedDaysAgo),
+        orders: { connect: { id: order.id } },
+      },
+    });
+    if (opts.status === 'PAID') {
+      await prisma.$transaction([
+        prisma.payment.create({
+          data: {
+            customerId: customer.id,
+            invoiceId: invoice.id,
+            method: customer.paymentPref ?? 'CASH',
+            amount: order.total,
+            receivedAt: day(opts.dueOffset - 1),
+            note: `Invoice #${invoice.number}`,
+          },
+        }),
+        prisma.order.update({ where: { id: order.id }, data: { status: 'PAID', paymentMethod: customer.paymentPref ?? 'CASH' } }),
+      ]);
+    }
+    return invoice;
+  };
+
+  await mkInvoice(sunrise, orderFor(sunrise, -8), { status: 'OVERDUE', issuedDaysAgo: 18, dueOffset: -10 });
+  await mkInvoice(troy, orderFor(troy, -7), { status: 'OVERDUE', issuedDaysAgo: 20, dueOffset: -12 });
+  await mkInvoice(maria, orderFor(maria, -14), { status: 'PAID', issuedDaysAgo: 14, dueOffset: -4 });
+  await mkInvoice(denise, orderFor(denise, -12), { status: 'PAID', issuedDaysAgo: 12, dueOffset: -2 });
+  await mkInvoice(diaz, orderFor(diaz, -30), { status: 'PAID', issuedDaysAgo: 30, dueOffset: -16 });
+  await mkInvoice(kim, orderFor(kim, -5), { status: 'SENT', issuedDaysAgo: 5, dueOffset: 9 });
+  await mkInvoice(rosa, orderFor(rosa, -6), { status: 'SENT', issuedDaysAgo: 6, dueOffset: 8 });
+
+  // ── Today's + upcoming deliveries (7) ──────────────────────────
   const upcoming = [
     { customer: maria, offset: 0, jugs: 3, discountPct: 10, fee: 0 },
     { customer: troy, offset: 0, jugs: 5, discountPct: 10, fee: 2 },
     { customer: denise, offset: 0, jugs: 2, discountPct: 5, fee: 5 },
+    { customer: rosa, offset: 0, jugs: 2, discountPct: 10, fee: 5 },
     { customer: sunrise, offset: 1, jugs: 6, discountPct: 10, fee: 2 },
+    { customer: kim, offset: 1, jugs: 4, discountPct: 0, fee: 0 },
     { customer: jerome, offset: 2, jugs: 2, discountPct: 0, fee: 0 },
   ];
   for (const o of upcoming) {
-    const subtotal = o.jugs * 8;
+    const subtotal = o.jugs * JUG_PRICE;
     const discount = Math.round(subtotal * o.discountPct) / 100;
     await prisma.order.create({
       data: {
@@ -315,6 +449,7 @@ async function main() {
       { customerId: troy.id, channel: 'CALL', note: 'Asked about adding a second dispenser — quote next visit.' },
       { customerId: denise.id, channel: 'TEXT', note: 'Confirmed Wednesday works better than Tuesday.' },
       { customerId: jerome.id, channel: 'NOTE', note: 'Moved apartments — verify address before next order.' },
+      { customerId: kim.id, channel: 'IN_PERSON', note: 'Wants the invoice emailed on the 1st of each month.' },
     ],
   });
   await prisma.portalRequest.create({
@@ -322,8 +457,9 @@ async function main() {
   });
 
   console.log('Seed complete:');
-  console.log(`  customers: 5 (portal example: /portal/${maria.portalToken})`);
-  console.log('  orders: 12 · zones: 3 · inventory: 5 items · supplier purchases: 3');
+  console.log(`  customers: 8 (portal example: /portal/${maria.portalToken})`);
+  console.log('  orders: 20 · invoices: 7 (2 overdue, 3 paid, 2 pending)');
+  console.log('  jugs: 50 owned = 20 in stock + 30 at customers · competitors: 2');
 }
 
 main()

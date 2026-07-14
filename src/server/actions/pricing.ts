@@ -38,13 +38,21 @@ export async function updateConfig(form: FormData) {
   for (const flag of ['loyaltyEnabled', 'autoSuspendEnabled']) {
     if (form.has(`${flag}__present`)) data[flag] = form.get(flag) === 'on';
   }
+  const business: Record<string, string | null> = {};
+  if (form.has('businessName')) {
+    business.businessName = String(form.get('businessName')).trim() || 'Garden State Water';
+    for (const field of ['businessPhone', 'businessEmail', 'businessAddress']) {
+      business[field] = (form.get(field) as string | null)?.trim() || null;
+    }
+  }
   await prisma.pricingConfig.upsert({
     where: { id: DEFAULT_CONFIG_ID },
-    update: data,
-    create: { id: DEFAULT_CONFIG_ID, ...data },
+    update: { ...data, ...business },
+    create: { id: DEFAULT_CONFIG_ID, ...data, ...business },
   });
   revalidatePath('/pricing');
   revalidatePath('/settings');
+  revalidatePath('/invoices');
 }
 
 export async function upsertCompetitor(form: FormData) {

@@ -21,6 +21,7 @@ enum Role {
 enum AccountType {
   RESIDENTIAL
   COMMERCIAL
+  EVENT
 }
 
 enum SubscriptionPlan {
@@ -140,6 +141,8 @@ model Customer {
   zone             Zone?            @relation(fields: [zoneId], references: [id])
   jugsWithCustomer Int              @default(0) // our jugs currently at their site
   jugDeposits      Int              @default(0) // jugs they've bought outright
+  dispenserRental  Boolean          @default(false) // renting a dispenser (monthly fee)
+  paymentPref      PaymentMethod? // how they usually like to pay
   portalToken      String           @unique @default(cuid())
   birthday         DateTime?
   startedAt        DateTime         @default(now())
@@ -218,6 +221,10 @@ model PricingConfig {
   laborCostPerHour      Float    @default(0)
   targetMarginPct       Float    @default(60)
   lowStockThreshold     Int      @default(20) // jugs in stock alert level
+  businessName          String   @default("Garden State Water")
+  businessPhone         String?
+  businessEmail         String?
+  businessAddress       String?
   overdueSuspendDays    Int      @default(45)
   loyaltyMonths         Int      @default(12) // customers older than this get loyalty messages
   loyaltyEnabled        Boolean  @default(true)

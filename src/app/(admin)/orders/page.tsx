@@ -1,17 +1,17 @@
 import Link from 'next/link';
-import { CalendarDays, Plus, Printer } from 'lucide-react';
+import { CalendarDays, CheckCheck, Plus, Printer } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { isoDate, money, shortDate, STATUS_LABELS } from '@/lib/format';
-import { generateSubscriptionOrders } from '@/server/actions/orders';
+import { generateSubscriptionOrders, markAllDeliveredForDate } from '@/server/actions/orders';
 import { Badge, EmptyState, LinkButton, ORDER_STATUS_TONE, PageHeader } from '@/components/ui';
 import type { Prisma } from '@prisma/client';
 
 export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: { date?: string; status?: string; customer?: string; generated?: string };
+  searchParams: { date?: string; status?: string; customer?: string; generated?: string; delivered?: string };
 }) {
-  const { date, status, customer, generated } = searchParams;
+  const { date, status, customer, generated, delivered } = searchParams;
 
   const where: Prisma.OrderWhereInput = {};
   if (date) where.deliveryDate = new Date(date + 'T00:00:00');
@@ -49,6 +49,12 @@ export default async function OrdersPage({
           Generated {generated} subscription order{generated === '1' ? '' : 's'}.
         </p>
       )}
+      {delivered !== undefined && (
+        <p className="mb-4 rounded-lg bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
+          Marked {delivered} order{delivered === '1' ? '' : 's'} delivered. Empties were recorded as 0 —
+          adjust on a customer&apos;s profile if you collected returns.
+        </p>
+      )}
 
       <div className="mb-4 grid gap-3 md:grid-cols-2">
         <form className="card flex flex-wrap items-end gap-2 p-3" method="GET">
@@ -79,6 +85,17 @@ export default async function OrdersPage({
             <input type="date" name="date" defaultValue={today} required className="input" />
           </div>
           <button className="btn-primary">Generate</button>
+        </form>
+
+        <form action={markAllDeliveredForDate} className="card flex flex-wrap items-end gap-2 p-3 md:col-span-2">
+          <div className="min-w-36 flex-1">
+            <label className="label">
+              <CheckCheck size={12} className="mr-1 inline" />
+              Mark all deliveries as delivered for…
+            </label>
+            <input type="date" name="date" defaultValue={date ?? today} required className="input" />
+          </div>
+          <button className="btn-secondary">Mark all delivered</button>
         </form>
       </div>
 

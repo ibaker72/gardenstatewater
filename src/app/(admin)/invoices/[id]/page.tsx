@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Ban, CreditCard, Send } from 'lucide-react';
 import { getAppUrl } from '@/lib/env';
+import { getConfig } from '@/lib/pricing';
 import { prisma } from '@/lib/prisma';
 import { stripeConfigured } from '@/lib/stripe';
 import { fullAddress, money, shortDate } from '@/lib/format';
@@ -16,14 +17,17 @@ import { PrintButton } from '@/components/PrintButton';
 
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const invoice = await prisma.invoice.findUnique({
-    where: { id },
-    include: {
-      customer: true,
-      orders: { include: { items: true }, orderBy: { deliveryDate: 'asc' } },
-      payments: { orderBy: { receivedAt: 'desc' } },
-    },
-  });
+  const [invoice, config] = await Promise.all([
+    prisma.invoice.findUnique({
+      where: { id },
+      include: {
+        customer: true,
+        orders: { include: { items: true }, orderBy: { deliveryDate: 'asc' } },
+        payments: { orderBy: { receivedAt: 'desc' } },
+      },
+    }),
+    getConfig(),
+  ]);
   if (!invoice) notFound();
   const balance = invoice.total - invoice.amountPaid;
 
@@ -53,8 +57,12 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         <div className="card p-6 lg:col-span-2">
           <div className="mb-6 flex items-start justify-between">
             <div>
-              <div className="text-lg font-bold text-navy-900 dark:text-white">Garden State Water</div>
-              <div className="text-sm text-slate-500">Water delivery · New Jersey</div>
+              <div className="text-lg font-bold text-navy-900 dark:text-white">{config.businessName}</div>
+              <div className="text-sm text-slate-500">
+                {[config.businessAddress, config.businessPhone, config.businessEmail]
+                  .filter(Boolean)
+                  .join(' · ') || 'Water delivery · New Jersey'}
+              </div>
             </div>
             <div className="text-right text-sm">
               <div className="font-semibold">Invoice #{invoice.number}</div>

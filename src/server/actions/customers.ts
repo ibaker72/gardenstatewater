@@ -3,7 +3,13 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import type { AccountType, CommChannel, CustomerStatus, SubscriptionPlan } from '@prisma/client';
+import type {
+  AccountType,
+  CommChannel,
+  CustomerStatus,
+  PaymentMethod,
+  SubscriptionPlan,
+} from '@prisma/client';
 
 /** Find the zone whose zip list contains this zip. */
 export async function zoneForZip(zip: string | null | undefined) {
@@ -47,6 +53,8 @@ async function customerDataFromForm(form: FormData) {
     preferredDay: num(form, 'preferredDay'),
     zoneId,
     jugsWithCustomer: num(form, 'jugsWithCustomer') ?? 0,
+    dispenserRental: form.get('dispenserRental') === 'on',
+    paymentPref: (str(form, 'paymentPref') as PaymentMethod | null) ?? null,
     birthday: birthday ? new Date(birthday) : null,
   };
 }

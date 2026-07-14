@@ -26,6 +26,31 @@ export default async function SettingsPage() {
       <PageHeader title="Settings" subtitle="Zones, automation, and integrations." />
 
       <div className="grid gap-4 lg:grid-cols-2">
+        {/* Business info (shown on invoices, statements, and emails) */}
+        <form action={updateConfig} className="card space-y-3 p-4">
+          <h2 className="font-semibold">Business info</h2>
+          <p className="text-sm text-slate-500">Shown on invoices, statements, and customer emails.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="label">Business name</label>
+              <input name="businessName" defaultValue={config.businessName} className="input" required />
+            </div>
+            <div>
+              <label className="label">Phone</label>
+              <input name="businessPhone" type="tel" inputMode="tel" defaultValue={config.businessPhone ?? ''} className="input" placeholder="(908) 555-0100" />
+            </div>
+            <div>
+              <label className="label">Email</label>
+              <input name="businessEmail" type="email" defaultValue={config.businessEmail ?? ''} className="input" placeholder="hello@gardenstatewater.com" />
+            </div>
+            <div className="col-span-2">
+              <label className="label">Address</label>
+              <input name="businessAddress" defaultValue={config.businessAddress ?? ''} className="input" placeholder="123 Main St, Newark, NJ 07102" />
+            </div>
+          </div>
+          <button className="btn-primary">Save business info</button>
+        </form>
+
         {/* Delivery zones */}
         <div className="card space-y-3 p-4">
           <h2 className="font-semibold">Delivery zones</h2>

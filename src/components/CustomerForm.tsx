@@ -32,7 +32,16 @@ export function CustomerForm({
         </div>
         <div>
           <label className="label">Phone</label>
-          <input name="phone" type="tel" defaultValue={c?.phone ?? ''} className="input" placeholder="(908) 555-0101" />
+          <input
+            name="phone"
+            type="tel"
+            inputMode="tel"
+            pattern="[+]?[0-9()\-.\s]{7,20}"
+            title="Enter a phone number, e.g. (908) 555-0101"
+            defaultValue={c?.phone ?? ''}
+            className="input"
+            placeholder="(908) 555-0101"
+          />
         </div>
         <div>
           <label className="label">Email</label>
@@ -70,6 +79,7 @@ export function CustomerForm({
           <select name="accountType" defaultValue={c?.accountType ?? 'RESIDENTIAL'} className="input">
             <option value="RESIDENTIAL">Residential</option>
             <option value="COMMERCIAL">Commercial</option>
+            <option value="EVENT">Event</option>
           </select>
         </div>
         <div>
@@ -116,6 +126,29 @@ export function CustomerForm({
             defaultValue={c?.jugsWithCustomer ?? 0}
             className="input"
           />
+        </div>
+        <div>
+          <label className="label">Preferred payment method</label>
+          <select name="paymentPref" defaultValue={c?.paymentPref ?? ''} className="input">
+            <option value="">No preference</option>
+            <option value="CASH">Cash</option>
+            <option value="VENMO">Venmo</option>
+            <option value="CASHAPP">CashApp</option>
+            <option value="ZELLE">Zelle</option>
+            <option value="STRIPE">Online (card)</option>
+            <option value="CHECK">Check</option>
+          </select>
+        </div>
+        <div className="flex items-end pb-2">
+          <label className="flex min-h-11 items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="dispenserRental"
+              defaultChecked={c?.dispenserRental ?? false}
+              className="h-5 w-5"
+            />
+            Renting a dispenser (monthly fee)
+          </label>
         </div>
         <div>
           <label className="label">Birthday (loyalty messages)</label>
