@@ -66,7 +66,7 @@ export default async function PortalDeliveriesPage({
             <div className="mt-2">
               <p className="text-base text-slate-400">Nothing scheduled right now.</p>
               <Link
-                href={`/portal/${token}#request`}
+                href={`/portal/${token}/request`}
                 className="mt-3 flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-aqua-500 px-4 text-base font-semibold text-white transition hover:bg-aqua-600 active:scale-[0.99]"
               >
                 <CalendarPlus size={20} /> Request a delivery

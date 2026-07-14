@@ -1,7 +1,7 @@
 import { Trash2 } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { getConfig } from '@/lib/pricing';
-import { money, shortDate } from '@/lib/format';
+import { money, shortDate, WEEKDAYS } from '@/lib/format';
 import { updateConfig } from '@/server/actions/pricing';
 import { deleteZone, remapCustomerZones, runAutomationNow, upsertZone } from '@/server/actions/zones';
 import { Badge, PageHeader } from '@/components/ui';
@@ -76,7 +76,12 @@ export default async function SettingsPage() {
                       </button>
                     </form>
                   </div>
-                  <div className="mt-1 text-xs text-slate-400">zips: {z.zips.join(', ') || 'none'}</div>
+                  <div className="mt-1 text-xs text-slate-400">
+                    zips: {z.zips.join(', ') || 'none'} · days:{' '}
+                    {z.deliveryDays.length > 0
+                      ? z.deliveryDays.map((d) => WEEKDAYS[d].slice(0, 3)).join(', ')
+                      : 'any'}
+                  </div>
                 </li>
               );
             })}
@@ -96,6 +101,17 @@ export default async function SettingsPage() {
               <div className="col-span-2">
                 <label className="label">Zip codes (comma separated)</label>
                 <input name="zips" className="input" placeholder="07102, 07103, 07104" />
+              </div>
+              <div className="col-span-2">
+                <label className="label">Delivery days (customers can request these; none = any day)</label>
+                <div className="flex flex-wrap gap-3">
+                  {WEEKDAYS.map((day, i) => (
+                    <label key={day} className="flex items-center gap-1.5 text-sm">
+                      <input type="checkbox" name="deliveryDays" value={i} className="h-4 w-4" />
+                      {day.slice(0, 3)}
+                    </label>
+                  ))}
+                </div>
               </div>
               <div className="col-span-2">
                 <button className="btn-secondary w-full">Save zone</button>

@@ -12,11 +12,7 @@ import { customerBalance } from '@/lib/data';
 import { getConfig } from '@/lib/pricing';
 import { friendlyDay, money, PLAN_LABELS, shortDate } from '@/lib/format';
 import { stripeConfigured } from '@/lib/stripe';
-import {
-  requestExtraDelivery,
-  requestPauseOrResume,
-  updateContactInfo,
-} from '@/server/actions/portal';
+import { requestPauseOrResume, updateContactInfo } from '@/server/actions/portal';
 import { SignOutButton } from '@/components/portal/SignOutButton';
 
 export const dynamic = 'force-dynamic';
@@ -66,7 +62,6 @@ export default async function PortalHomePage({
       ? `mailto:${config.businessEmail}`
       : '#contact';
 
-  const extra = requestExtraDelivery.bind(null, token);
   const pauseResume = requestPauseOrResume.bind(null, token);
   const contact = updateContactInfo.bind(null, token);
 
@@ -207,7 +202,7 @@ export default async function PortalHomePage({
               <CreditCard size={20} /> My bill
             </a>
           )}
-          <a href="#request" className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
+          <a href={`/portal/${token}/request`} className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
             <CalendarPlus size={20} /> Extra delivery
           </a>
           <a href="#request" className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
@@ -221,16 +216,12 @@ export default async function PortalHomePage({
         {/* Request / pause */}
         <section className={card} id="request">
           <h2 className="text-lg font-semibold text-navy-900">Need something?</h2>
-          <form action={extra} className="mt-3 space-y-3">
-            <input
-              name="detail"
-              className="h-14 w-full rounded-2xl border border-aqua-200 bg-white px-5 text-base text-navy-900 placeholder:text-slate-400 focus:border-aqua-500 focus:outline-none focus:ring-4 focus:ring-aqua-100"
-              placeholder="e.g. 3 extra jugs before the weekend"
-            />
-            <button className={`${quickAction} w-full bg-aqua-500 text-white hover:bg-aqua-600`}>
-              <CalendarPlus size={20} /> Request extra delivery
-            </button>
-          </form>
+          <a
+            href={`/portal/${token}/request`}
+            className={`${quickAction} mt-3 w-full bg-aqua-500 text-white hover:bg-aqua-600`}
+          >
+            <CalendarPlus size={20} /> Request a delivery
+          </a>
           {customer.status === 'ACTIVE' && (
             <form action={pauseResume} className="mt-3">
               <input type="hidden" name="kind" value="PAUSE" />

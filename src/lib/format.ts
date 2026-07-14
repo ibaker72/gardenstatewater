@@ -11,6 +11,27 @@ export const dayDate = (d: Date | string | null | undefined) =>
 
 export const isoDate = (d: Date | string) => format(new Date(d), 'yyyy-MM-dd');
 
+/**
+ * The next `count` dates a zone can be delivered to, starting tomorrow.
+ * `deliveryDays` uses 0=Sun..6=Sat; an empty list means every day works.
+ */
+export const upcomingDeliveryDates = (
+  deliveryDays: number[],
+  count = 14,
+  from = new Date()
+): Date[] => {
+  const dates: Date[] = [];
+  const cursor = new Date(from);
+  cursor.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 60 && dates.length < count; i++) {
+    cursor.setDate(cursor.getDate() + 1);
+    if (deliveryDays.length === 0 || deliveryDays.includes(cursor.getDay())) {
+      dates.push(new Date(cursor));
+    }
+  }
+  return dates;
+};
+
 /** "today" / "tomorrow" / "Thursday" / "Tue, Aug 4" — customer-friendly dates. */
 export const friendlyDay = (d: Date | string): string => {
   const date = new Date(d);

@@ -213,13 +213,15 @@ model PortalLoginCode {
 
 // Requests submitted from the customer portal (extra delivery, pause, contact update)
 model PortalRequest {
-  id         String   @id @default(cuid())
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  kind       String // EXTRA_DELIVERY | PAUSE | RESUME | CONTACT_UPDATE | OTHER
-  detail     String?
-  resolved   Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id            String    @id @default(cuid())
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  kind          String // EXTRA_DELIVERY | PAUSE | RESUME | CONTACT_UPDATE | OTHER
+  detail        String?
+  requestedDate DateTime? // structured, so approving can create the order directly
+  jugs          Int?
+  resolved      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
 
   @@index([customerId])
   @@map("portal_requests")
@@ -228,11 +230,12 @@ model PortalRequest {
 // ── Zones & pricing ─────────────────────────────────────────────────────────
 
 model Zone {
-  id          String     @id @default(cuid())
-  name        String     @unique // "Zone 1"
-  description String?
-  deliveryFee Float      @default(0)
-  zips        String[]   @default([]) // zip codes mapped to this zone
+  id           String     @id @default(cuid())
+  name         String     @unique // "Zone 1"
+  description  String?
+  deliveryFee  Float      @default(0)
+  deliveryDays Int[]      @default([]) // weekdays served, 0=Sun..6=Sat; empty = every day
+  zips         String[]   @default([]) // zip codes mapped to this zone
   color       String?    @default("#1c94bd")
   customers   Customer[]
   createdAt   DateTime   @default(now())

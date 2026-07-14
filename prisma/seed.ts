@@ -67,13 +67,13 @@ async function main() {
   // ── Zones ──────────────────────────────────────────────────────
   const [zone1, zone2, zone3] = await Promise.all([
     prisma.zone.create({
-      data: { name: 'Zone 1 — Newark core', deliveryFee: 0, zips: ['07102', '07103', '07104', '07105'] },
+      data: { name: 'Zone 1 — Newark core', deliveryFee: 0, deliveryDays: [1, 4], zips: ['07102', '07103', '07104', '07105'] },
     }),
     prisma.zone.create({
-      data: { name: 'Zone 2 — East Orange / Irvington', deliveryFee: 2, zips: ['07017', '07018', '07111'] },
+      data: { name: 'Zone 2 — East Orange / Irvington', deliveryFee: 2, deliveryDays: [2, 5], zips: ['07017', '07018', '07111'] },
     }),
     prisma.zone.create({
-      data: { name: 'Zone 3 — Elizabeth / Union', deliveryFee: 5, zips: ['07201', '07202', '07208', '07083'] },
+      data: { name: 'Zone 3 — Elizabeth / Union', deliveryFee: 5, deliveryDays: [3, 6], zips: ['07201', '07202', '07208', '07083'] },
     }),
   ]);
 

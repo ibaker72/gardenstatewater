@@ -10,6 +10,11 @@ export async function upsertZone(form: FormData) {
     name: String(form.get('name') ?? '').trim(),
     description: (form.get('description') as string | null)?.trim() || null,
     deliveryFee: Number(form.get('deliveryFee')) || 0,
+    deliveryDays: form
+      .getAll('deliveryDays')
+      .map(Number)
+      .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+      .sort(),
     zips: String(form.get('zips') ?? '')
       .split(/[,\s]+/)
       .map((z) => z.trim())
