@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { differenceInCalendarDays, format } from 'date-fns';
 
 export const money = (n: number | null | undefined) =>
   (n ?? 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -10,6 +10,16 @@ export const dayDate = (d: Date | string | null | undefined) =>
   d ? format(new Date(d), 'EEE, MMM d') : '—';
 
 export const isoDate = (d: Date | string) => format(new Date(d), 'yyyy-MM-dd');
+
+/** "today" / "tomorrow" / "Thursday" / "Tue, Aug 4" — customer-friendly dates. */
+export const friendlyDay = (d: Date | string): string => {
+  const date = new Date(d);
+  const days = differenceInCalendarDays(date, new Date());
+  if (days <= 0) return 'today';
+  if (days === 1) return 'tomorrow';
+  if (days < 7) return format(date, 'EEEE');
+  return format(date, 'EEE, MMM d');
+};
 
 export const timeAgoDays = (d: Date | string | null | undefined) => {
   if (!d) return null;

@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import { differenceInCalendarDays, format } from 'date-fns';
 import {
   CalendarPlus,
   CreditCard,
@@ -11,7 +10,7 @@ import {
 import { prisma } from '@/lib/prisma';
 import { customerBalance } from '@/lib/data';
 import { getConfig } from '@/lib/pricing';
-import { money, PLAN_LABELS, shortDate } from '@/lib/format';
+import { friendlyDay, money, PLAN_LABELS, shortDate } from '@/lib/format';
 import { stripeConfigured } from '@/lib/stripe';
 import {
   requestExtraDelivery,
@@ -21,15 +20,6 @@ import {
 import { SignOutButton } from '@/components/portal/SignOutButton';
 
 export const dynamic = 'force-dynamic';
-
-/** "today" / "tomorrow" / "Thursday" / "Tue, Aug 4" — customer-friendly dates. */
-function friendlyDay(date: Date): string {
-  const days = differenceInCalendarDays(date, new Date());
-  if (days <= 0) return 'today';
-  if (days === 1) return 'tomorrow';
-  if (days < 7) return format(date, 'EEEE');
-  return format(date, 'EEE, MMM d');
-}
 
 const card = 'rounded-3xl border border-aqua-100 bg-white p-5 shadow-lg shadow-aqua-100/40';
 
@@ -256,7 +246,15 @@ export default async function PortalHomePage({
 
         {/* Recent deliveries */}
         <section className={card} id="deliveries">
-          <h2 className="text-lg font-semibold text-navy-900">Recent deliveries</h2>
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-lg font-semibold text-navy-900">Recent deliveries</h2>
+            <a
+              href={`/portal/${token}/deliveries`}
+              className="text-base font-semibold text-aqua-700 hover:underline"
+            >
+              See all →
+            </a>
+          </div>
           {history.length === 0 ? (
             <p className="mt-2 text-base text-slate-400">No deliveries yet.</p>
           ) : (
