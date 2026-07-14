@@ -1,18 +1,39 @@
 import { notFound } from 'next/navigation';
-import { Droplets } from 'lucide-react';
+import { differenceInCalendarDays, format } from 'date-fns';
+import {
+  CalendarPlus,
+  CreditCard,
+  Droplets,
+  MessageCircle,
+  PauseCircle,
+  Truck,
+} from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { customerBalance } from '@/lib/data';
-import { dayDate, money, PLAN_LABELS, shortDate } from '@/lib/format';
+import { getConfig } from '@/lib/pricing';
+import { money, PLAN_LABELS, shortDate } from '@/lib/format';
 import { stripeConfigured } from '@/lib/stripe';
 import {
   requestExtraDelivery,
   requestPauseOrResume,
   updateContactInfo,
 } from '@/server/actions/portal';
+import { SignOutButton } from '@/components/portal/SignOutButton';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PortalPage({
+/** "today" / "tomorrow" / "Thursday" / "Tue, Aug 4" — customer-friendly dates. */
+function friendlyDay(date: Date): string {
+  const days = differenceInCalendarDays(date, new Date());
+  if (days <= 0) return 'today';
+  if (days === 1) return 'tomorrow';
+  if (days < 7) return format(date, 'EEEE');
+  return format(date, 'EEE, MMM d');
+}
+
+const card = 'rounded-3xl border border-aqua-100 bg-white p-5 shadow-lg shadow-aqua-100/40';
+
+export default async function PortalHomePage({
   params,
   searchParams,
 }: {
@@ -23,146 +44,252 @@ export default async function PortalPage({
   const customer = await prisma.customer.findUnique({
     where: { portalToken: token },
     include: {
-      orders: {
-        orderBy: { deliveryDate: 'desc' },
-        take: 30,
-        include: { items: true },
-      },
+      orders: { orderBy: { deliveryDate: 'desc' }, take: 30, include: { items: true } },
       invoices: {
         where: { status: { in: ['SENT', 'PARTIALLY_PAID', 'OVERDUE'] } },
         orderBy: { dueDate: 'asc' },
       },
     },
   });
-  if (!customer) notFound();
+  if (!customer || !customer.portalAccess) notFound();
 
-  const balance = await customerBalance(customer.id);
+  const [balance, config] = await Promise.all([customerBalance(customer.id), getConfig()]);
   const upcoming = customer.orders
     .filter((o) => o.status === 'SCHEDULED' || o.status === 'OUT_FOR_DELIVERY')
     .sort((a, b) => a.deliveryDate.getTime() - b.deliveryDate.getTime());
-  const history = customer.orders.filter((o) => o.status === 'DELIVERED' || o.status === 'PAID').slice(0, 10);
+  const history = customer.orders
+    .filter((o) => o.status === 'DELIVERED' || o.status === 'PAID')
+    .slice(0, 6);
+
+  const next = upcoming[0];
+  const nextJugs = next
+    ? next.items.filter((i) => i.productType === 'JUG_REFILL').reduce((s, i) => s + i.quantity, 0)
+    : 0;
+
+  const hasOverdue = customer.invoices.some((i) => i.status === 'OVERDUE');
   const openInvoice = customer.invoices[0];
   const canPayOnline = stripeConfigured() && openInvoice && openInvoice.total - openInvoice.amountPaid > 0;
+
+  const contactHref = config.businessPhone
+    ? `sms:${config.businessPhone.replace(/[^\d+]/g, '')}`
+    : config.businessEmail
+      ? `mailto:${config.businessEmail}`
+      : '#contact';
 
   const extra = requestExtraDelivery.bind(null, token);
   const pauseResume = requestPauseOrResume.bind(null, token);
   const contact = updateContactInfo.bind(null, token);
 
+  const firstName = customer.name.split(' ')[0];
+
+  const quickAction =
+    'flex min-h-14 items-center justify-center gap-2 rounded-2xl px-4 text-base font-semibold transition active:scale-[0.99]';
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-12 dark:bg-navy-950">
+    <div className="min-h-screen bg-gradient-to-b from-aqua-50 via-white to-white pb-10">
       {/* Header */}
-      <header className="bg-navy-950 px-4 py-6 text-white">
-        <div className="mx-auto flex max-w-lg items-center gap-2">
-          <Droplets className="text-aqua-400" size={26} />
-          <div>
-            <div className="font-bold leading-tight">Garden State Water</div>
-            <div className="text-xs text-slate-300">Hi {customer.name.split(' ')[0]} 👋</div>
+      <header className="mx-auto flex w-full max-w-lg items-center justify-between px-5 pt-6">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-aqua-500 shadow-md shadow-aqua-200">
+            <Droplets size={22} className="text-white" />
           </div>
+          <div className="font-bold leading-tight text-navy-900">Garden State Water</div>
         </div>
+        <SignOutButton />
       </header>
 
-      <main className="mx-auto max-w-lg space-y-4 px-4 pt-4">
+      <main className="mx-auto w-full max-w-lg space-y-4 px-5 pt-6">
+        <h1 className="text-3xl font-bold text-navy-900">Hi {firstName}! 👋</h1>
+
         {paid && (
-          <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
+          <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-base font-medium text-emerald-800">
             ✓ Thanks! Your payment is processing — your balance will update shortly.
           </p>
         )}
-
         {customer.status === 'PAUSED' && (
-          <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
-            Your service is paused.
+          <div className="rounded-2xl bg-amber-50 px-4 py-3 text-base text-amber-900">
+            Your deliveries are paused.
             <form action={pauseResume} className="mt-2">
               <input type="hidden" name="kind" value="RESUME" />
-              <button className="btn-primary w-full">Resume my deliveries</button>
+              <button className={`${quickAction} w-full bg-amber-500 text-white hover:bg-amber-600`}>
+                Resume my deliveries
+              </button>
             </form>
           </div>
         )}
 
-        {/* Balance + jugs */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="card p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Balance</div>
-            <div className={`mt-1 text-2xl font-bold tabular-nums ${balance > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-              {money(balance)}
+        {/* Balance */}
+        <section className={card} id="bill">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Your balance
+              </div>
+              <div
+                className={`mt-1 text-4xl font-bold tabular-nums ${
+                  balance <= 0 ? 'text-emerald-600' : hasOverdue ? 'text-red-600' : 'text-navy-900'
+                }`}
+              >
+                {money(Math.max(balance, 0))}
+              </div>
+              <p className="mt-1 text-base text-slate-500">
+                {balance <= 0
+                  ? 'You’re all paid up 🎉'
+                  : hasOverdue
+                    ? 'Past due — please pay when you can.'
+                    : openInvoice
+                      ? `Due by ${shortDate(openInvoice.dueDate)}.`
+                      : 'We’ll include this on your next invoice.'}
+              </p>
             </div>
-            {canPayOnline ? (
-              <a href={`/api/pay/${openInvoice.id}`} className="btn-primary mt-2 w-full">
-                Pay online
+          </div>
+          {balance > 0 &&
+            (canPayOnline ? (
+              <a
+                href={`/api/pay/${openInvoice.id}`}
+                className={`${quickAction} mt-4 w-full bg-aqua-500 text-white hover:bg-aqua-600`}
+              >
+                <CreditCard size={20} /> Pay my balance
               </a>
-            ) : balance > 0 ? (
-              <p className="mt-1 text-xs text-slate-400">Pay by cash, Venmo, or CashApp at your next delivery.</p>
             ) : (
-              <p className="mt-1 text-xs text-slate-400">You&apos;re all paid up. 🎉</p>
-            )}
-          </div>
-          <div className="card p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your jugs</div>
-            <div className="mt-1 text-2xl font-bold tabular-nums">{customer.jugsWithCustomer}</div>
-            <p className="mt-1 text-xs text-slate-400">
-              5-gallon jugs at your place · {PLAN_LABELS[customer.plan]} plan
-            </p>
-          </div>
-        </div>
+              <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-base text-slate-500">
+                Pay by cash, Venmo, or CashApp at your next delivery.
+              </p>
+            ))}
 
-        {/* Upcoming deliveries */}
-        <div className="card p-4">
-          <h2 className="mb-2 font-semibold">Upcoming deliveries</h2>
-          {upcoming.length === 0 ? (
-            <p className="text-sm text-slate-400">Nothing scheduled yet.</p>
-          ) : (
-            <ul className="space-y-2 text-sm">
-              {upcoming.map((o) => (
-                <li key={o.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-navy-800/50">
+          {customer.invoices.length > 0 && (
+            <ul className="mt-4 divide-y divide-slate-100 border-t border-slate-100 text-base">
+              {customer.invoices.map((inv) => (
+                <li key={inv.id} className="flex items-center justify-between gap-2 py-2.5">
                   <div>
-                    <div className="font-medium">{dayDate(o.deliveryDate)}</div>
-                    <div className="text-xs text-slate-500">
-                      {o.items.map((i) => i.description ?? i.productType).join(', ')}
+                    <div className="font-medium text-navy-900">Invoice #{inv.number}</div>
+                    <div className={`text-sm ${inv.status === 'OVERDUE' ? 'text-red-600' : 'text-slate-500'}`}>
+                      {inv.status === 'OVERDUE' ? 'Overdue — was ' : ''}due {shortDate(inv.dueDate)}
                     </div>
                   </div>
-                  <span className="font-medium tabular-nums">{money(o.total)}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold tabular-nums text-navy-900">
+                      {money(inv.total - inv.amountPaid)}
+                    </span>
+                    {stripeConfigured() && inv.total - inv.amountPaid > 0 && (
+                      <a href={`/api/pay/${inv.id}`} className="font-semibold text-aqua-700 hover:underline">
+                        Pay
+                      </a>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
           )}
-        </div>
+        </section>
 
-        {/* Request delivery / pause */}
-        <div className="card space-y-3 p-4">
-          <h2 className="font-semibold">Need something?</h2>
-          <form action={extra} className="space-y-2">
+        {/* Next delivery + jugs */}
+        <section className={card}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-aqua-100 text-aqua-700">
+              <Truck size={24} />
+            </div>
+            <div>
+              {next ? (
+                <>
+                  <div className="text-lg font-semibold text-navy-900">
+                    {nextJugs > 0 ? `${nextJugs} jug${nextJugs === 1 ? '' : 's'}` : 'Your delivery'} arriving{' '}
+                    {friendlyDay(next.deliveryDate)}
+                  </div>
+                  <p className="text-base text-slate-500">
+                    {next.items.map((i) => i.description ?? i.productType).join(', ')} · {money(next.total)}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-lg font-semibold text-navy-900">No delivery scheduled yet</div>
+                  <p className="text-base text-slate-500">Request one below and we’ll set it up.</p>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="mt-4 flex items-center justify-between rounded-2xl bg-aqua-50 px-4 py-3">
+            <span className="text-base text-slate-600">Our jugs at your place</span>
+            <span className="text-2xl font-bold tabular-nums text-navy-900">{customer.jugsWithCustomer}</span>
+          </div>
+          {upcoming.length > 1 && (
+            <ul className="mt-3 space-y-1.5 text-base text-slate-500">
+              {upcoming.slice(1, 4).map((o) => (
+                <li key={o.id} className="flex justify-between">
+                  <span>Then {friendlyDay(o.deliveryDate)}</span>
+                  <span className="tabular-nums">{money(o.total)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* Quick actions */}
+        <section className="grid grid-cols-2 gap-3">
+          {canPayOnline ? (
+            <a href={`/api/pay/${openInvoice.id}`} className={`${quickAction} bg-aqua-500 text-white hover:bg-aqua-600`}>
+              <CreditCard size={20} /> Pay balance
+            </a>
+          ) : (
+            <a href="#bill" className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
+              <CreditCard size={20} /> My bill
+            </a>
+          )}
+          <a href="#request" className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
+            <CalendarPlus size={20} /> Extra delivery
+          </a>
+          <a href="#request" className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
+            <PauseCircle size={20} /> Pause service
+          </a>
+          <a href={contactHref} className={`${quickAction} border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
+            <MessageCircle size={20} /> Contact us
+          </a>
+        </section>
+
+        {/* Request / pause */}
+        <section className={card} id="request">
+          <h2 className="text-lg font-semibold text-navy-900">Need something?</h2>
+          <form action={extra} className="mt-3 space-y-3">
             <input
               name="detail"
-              className="input"
+              className="h-14 w-full rounded-2xl border border-aqua-200 bg-white px-5 text-base text-navy-900 placeholder:text-slate-400 focus:border-aqua-500 focus:outline-none focus:ring-4 focus:ring-aqua-100"
               placeholder="e.g. 3 extra jugs before the weekend"
             />
-            <button className="btn-primary w-full">Request extra delivery</button>
+            <button className={`${quickAction} w-full bg-aqua-500 text-white hover:bg-aqua-600`}>
+              <CalendarPlus size={20} /> Request extra delivery
+            </button>
           </form>
           {customer.status === 'ACTIVE' && (
-            <form action={pauseResume}>
+            <form action={pauseResume} className="mt-3">
               <input type="hidden" name="kind" value="PAUSE" />
-              <button className="btn-secondary w-full">Pause my service</button>
+              <button className={`${quickAction} w-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50`}>
+                <PauseCircle size={20} /> Pause my service
+              </button>
             </form>
           )}
-        </div>
+          <p className="mt-3 text-sm text-slate-400">
+            We&apos;ll confirm your request within a couple of hours.
+          </p>
+        </section>
 
-        {/* Delivery history */}
-        <div className="card p-4">
-          <h2 className="mb-2 font-semibold">Delivery history</h2>
+        {/* Recent deliveries */}
+        <section className={card} id="deliveries">
+          <h2 className="text-lg font-semibold text-navy-900">Recent deliveries</h2>
           {history.length === 0 ? (
-            <p className="text-sm text-slate-400">No deliveries yet.</p>
+            <p className="mt-2 text-base text-slate-400">No deliveries yet.</p>
           ) : (
-            <ul className="divide-y divide-slate-100 text-sm dark:divide-navy-800">
+            <ul className="mt-1 divide-y divide-slate-100 text-base">
               {history.map((o) => (
-                <li key={o.id} className="flex items-center justify-between py-2">
+                <li key={o.id} className="flex items-center justify-between py-2.5">
                   <div>
-                    <div>{shortDate(o.deliveryDate)}</div>
-                    <div className="text-xs text-slate-500">
+                    <div className="font-medium text-navy-900">{shortDate(o.deliveryDate)}</div>
+                    <div className="text-sm text-slate-500">
                       {o.items.map((i) => i.description ?? i.productType).join(', ')}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-medium tabular-nums">{money(o.total)}</div>
-                    <div className={`text-xs ${o.status === 'PAID' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    <div className="font-semibold tabular-nums text-navy-900">{money(o.total)}</div>
+                    <div className={`text-sm ${o.status === 'PAID' ? 'text-emerald-600' : 'text-amber-600'}`}>
                       {o.status === 'PAID' ? 'paid' : 'unpaid'}
                     </div>
                   </div>
@@ -170,26 +297,44 @@ export default async function PortalPage({
               ))}
             </ul>
           )}
-        </div>
+        </section>
 
         {/* Contact info */}
-        <div className="card p-4">
-          <h2 className="mb-2 font-semibold">Your contact info</h2>
-          <form action={contact} className="space-y-2">
+        <section className={card} id="contact">
+          <h2 className="text-lg font-semibold text-navy-900">Your info</h2>
+          <p className="mt-0.5 text-base text-slate-500">
+            {customer.address}
+            {customer.city ? `, ${customer.city}` : ''} · {PLAN_LABELS[customer.plan]} plan
+          </p>
+          <form action={contact} className="mt-3 space-y-3">
             <div>
-              <label className="label">Phone</label>
-              <input name="phone" type="tel" defaultValue={customer.phone ?? ''} className="input" />
+              <label className="mb-1 block text-sm font-medium text-slate-500">Phone</label>
+              <input
+                name="phone"
+                type="tel"
+                inputMode="tel"
+                defaultValue={customer.phone ?? ''}
+                className="h-14 w-full rounded-2xl border border-aqua-200 bg-white px-5 text-base text-navy-900 focus:border-aqua-500 focus:outline-none focus:ring-4 focus:ring-aqua-100"
+              />
             </div>
             <div>
-              <label className="label">Email</label>
-              <input name="email" type="email" defaultValue={customer.email ?? ''} className="input" />
+              <label className="mb-1 block text-sm font-medium text-slate-500">Email</label>
+              <input
+                name="email"
+                type="email"
+                defaultValue={customer.email ?? ''}
+                className="h-14 w-full rounded-2xl border border-aqua-200 bg-white px-5 text-base text-navy-900 focus:border-aqua-500 focus:outline-none focus:ring-4 focus:ring-aqua-100"
+              />
             </div>
-            <button className="btn-secondary w-full">Update</button>
+            <button className={`${quickAction} w-full border border-aqua-200 bg-white text-navy-900 hover:bg-aqua-50`}>
+              Update my info
+            </button>
           </form>
-        </div>
+        </section>
 
-        <p className="pb-4 text-center text-xs text-slate-400">
-          Garden State Water · questions? call or text your delivery driver
+        <p className="pt-2 text-center text-sm text-slate-400">
+          {config.businessName}
+          {config.businessPhone ? ` · call or text ${config.businessPhone}` : ' · questions? call or text your delivery driver'}
         </p>
       </main>
     </div>
