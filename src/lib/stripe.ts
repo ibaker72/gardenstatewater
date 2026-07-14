@@ -1,20 +1,39 @@
 import Stripe from 'stripe';
+import { cleanEnv, getAppUrl } from './env';
 import { prisma } from './prisma';
 
+// Server-only module: reads STRIPE_SECRET_KEY. Never import from client
+// components — browser code gets no Stripe SDK (payments run through
+// Stripe-hosted Checkout pages, so no publishable key is needed either).
+
+function getStripeSecretKey(): string | undefined {
+  return cleanEnv(process.env.STRIPE_SECRET_KEY);
+}
+
 export function stripeConfigured() {
-  return Boolean(process.env.STRIPE_SECRET_KEY);
+  return Boolean(getStripeSecretKey());
 }
 
 let client: Stripe | null = null;
+
+/**
+ * Lazily-created Stripe server client, or null when STRIPE_SECRET_KEY isn't
+ * set. Nothing is initialized at module import, so merely importing this
+ * file (directly or transitively) can never crash an unrelated page.
+ * Uses the SDK's pinned API version (this stripe v17 install → 2025-02-24.acacia).
+ */
 export function getStripe(): Stripe | null {
-  if (!stripeConfigured()) return null;
-  if (!client) client = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  const key = getStripeSecretKey();
+  if (!key) return null;
+  if (!client) client = new Stripe(key);
   return client;
 }
 
 /**
  * Create (or reuse) a Stripe Checkout session for the invoice's outstanding
  * balance and return its URL. Returns null when Stripe isn't configured.
+ * Amount and currency are computed server-side from the invoice — nothing
+ * about the price comes from the client.
  */
 export async function checkoutUrlForInvoice(invoiceId: string): Promise<string | null> {
   const stripe = getStripe();
@@ -36,7 +55,7 @@ export async function checkoutUrlForInvoice(invoiceId: string): Promise<string |
     }
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = getAppUrl();
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     customer_email: invoice.customer.email ?? undefined,

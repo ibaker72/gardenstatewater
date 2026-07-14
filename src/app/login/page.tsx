@@ -5,33 +5,91 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
+interface AuthCheck {
+  configured: boolean;
+  configProblem?: string;
+  ownerEmailSet: boolean;
+  authenticated: boolean;
+  email: string | null;
+  isOwner: boolean;
+}
+
+function deniedMessage(email: string, ownerEmailSet: boolean) {
+  return ownerEmailSet
+    ? `You're signed in as ${email}, but the server's OWNER_EMAIL is set to a different address. Update OWNER_EMAIL to exactly "${email}" in your environment (.env locally, or Vercel → Settings → Environment Variables), then restart the dev server or redeploy.`
+    : `You're signed in as ${email}, but OWNER_EMAIL isn't set on the server, so nobody is allowed into the admin app. Add OWNER_EMAIL=${email} to your environment (.env locally, or Vercel → Settings → Environment Variables), then restart the dev server or redeploy.`;
+}
+
+function initialError(params: URLSearchParams): string | null {
+  // The proxy bounces broken-auth-config requests here with ?error=…
+  const error = params.get('error');
+  if (error === 'config') {
+    return 'The server’s Supabase configuration is invalid — most often NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY pasted with wrapping quotes, stray whitespace, or a missing https:// prefix. Fix the values in Vercel → Settings → Environment Variables (no quotes!), then redeploy. /api/health shows the exact problem.';
+  }
+  if (error === 'auth-unavailable') {
+    return 'The authentication service could not be reached. Please try again in a moment.';
+  }
+  // Signed in but rejected — the proxy forwards ?denied=<email>.
+  const denied = params.get('denied');
+  if (denied) return deniedMessage(denied, params.get('reason') !== 'owner-unset');
+  return null;
+}
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(initialError(params));
 
   const supabase = createClient();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!supabase) {
-      // Local dev without Supabase — middleware lets everything through.
-      router.push(params.get('next') ?? '/');
-      return;
-    }
     setBusy(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setBusy(false);
-    if (error) {
-      setError(error.message);
-      return;
+    try {
+      if (!supabase) {
+        // No usable NEXT_PUBLIC_SUPABASE_* in the browser bundle. Either true
+        // dev mode (server has none either → proxy is open) or the vars are
+        // missing/broken only in this build — ask the server which it is.
+        const check: AuthCheck = await (await fetch('/api/auth/check')).json();
+        if (check.configProblem) {
+          setError(
+            `The server's Supabase configuration is invalid: ${check.configProblem} Fix it in Vercel → Settings → Environment Variables (no quotes!), then redeploy.`
+          );
+          return;
+        }
+        if (check.configured) {
+          setError(
+            'The server has Supabase configured, but the browser bundle is missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY. These are baked in at build time — restart the dev server (or redeploy on Vercel) after adding them.'
+          );
+          return;
+        }
+        router.push(params.get('next') ?? '/');
+        return;
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+
+      // Signed in — but the admin app only admits the OWNER_EMAIL account.
+      const check: AuthCheck = await (await fetch('/api/auth/check')).json();
+      if (check.isOwner) {
+        router.push(params.get('next') ?? '/');
+        router.refresh();
+        return;
+      }
+      setError(deniedMessage(check.email ?? email, check.ownerEmailSet));
+      // Drop the useless session so retrying is clean.
+      await supabase.auth.signOut();
+    } finally {
+      setBusy(false);
     }
-    router.push(params.get('next') ?? '/');
-    router.refresh();
   }
 
   return (
@@ -43,7 +101,7 @@ function LoginForm() {
           <div className="text-xs text-slate-500">Owner sign-in</div>
         </div>
       </div>
-      {!supabase && (
+      {!supabase && !error && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
           Supabase isn&apos;t configured — running in open dev mode. Press sign in to continue.
         </p>

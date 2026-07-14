@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Ban, CreditCard, Send } from 'lucide-react';
+import { getAppUrl } from '@/lib/env';
 import { prisma } from '@/lib/prisma';
 import { stripeConfigured } from '@/lib/stripe';
 import { fullAddress, money, shortDate } from '@/lib/format';
@@ -31,7 +32,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const doVoid = voidInvoice.bind(null, invoice.id);
   const pay = logInvoicePayment.bind(null, invoice.id);
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = getAppUrl();
   const payUrl = `${appUrl}/api/pay/${invoice.id}`;
 
   return (

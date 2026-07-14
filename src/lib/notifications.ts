@@ -1,4 +1,5 @@
 import { addDays, differenceInDays, format } from 'date-fns';
+import { getAppUrl } from './env';
 import { prisma } from './prisma';
 import { sendEmail, sendSms } from './email';
 import { money } from './format';
@@ -71,7 +72,7 @@ export async function runDailyAutomation(now = new Date()): Promise<AutomationRe
     if (![7, 14, 30].includes(daysLate)) continue;
     if (!inv.customer.email) continue;
     const due = inv.total - inv.amountPaid;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const appUrl = getAppUrl();
     await sendEmail({
       to: inv.customer.email,
       subject: `Reminder: invoice #${inv.number} is ${daysLate} days past due (${money(due)})`,
@@ -166,7 +167,7 @@ export async function runDailyAutomation(now = new Date()): Promise<AutomationRe
       0
     );
     const outstanding = (outstandingAgg._sum.total ?? 0) - (outstandingAgg._sum.amountPaid ?? 0);
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const appUrl = getAppUrl();
     await sendEmail({
       to: ownerEmail,
       subject: `☀️ Today: ${todays.length} deliveries, ${money(expected)} expected`,

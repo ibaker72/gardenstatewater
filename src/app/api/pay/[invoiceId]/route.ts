@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAppUrl } from '@/lib/env';
 import { prisma } from '@/lib/prisma';
 import { checkoutUrlForInvoice } from '@/lib/stripe';
 
@@ -18,8 +19,13 @@ export async function GET(
     return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const url = await checkoutUrlForInvoice(invoice.id);
+  const appUrl = getAppUrl();
+  const url = await checkoutUrlForInvoice(invoice.id).catch((e) => {
+    console.error(
+      `[pay] Stripe checkout failed for invoice ${invoice.id}: ${e instanceof Error ? e.message : e}`
+    );
+    return null;
+  });
   if (url) return NextResponse.redirect(url);
 
   // Stripe not configured or nothing due — send them to their portal instead.

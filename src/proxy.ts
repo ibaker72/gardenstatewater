@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { getOwnerEmail, getSupabaseEnv } from '@/lib/env';
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -11,10 +12,34 @@ const PUBLIC_PREFIXES = [
   '/api/cron',
   '/api/portal',
   '/api/pay',
+  '/api/auth',
+  '/api/health',
   '/sw.js',
   '/manifest.webmanifest',
   '/offline',
 ];
+
+/**
+ * Send the visitor to /login instead of rendering the requested page.
+ * Everything that isn't "verified owner" funnels through here — including
+ * broken auth configuration — so a bad env var can lock the site down but
+ * can never turn every route into a plain 500 (the July 2026 outage) or,
+ * worse, drop the auth wall.
+ */
+function redirectToLogin(
+  request: NextRequest,
+  pathname: string,
+  extraParams: Record<string, string> = {}
+) {
+  const loginUrl = request.nextUrl.clone();
+  loginUrl.pathname = '/login';
+  loginUrl.search = '';
+  loginUrl.searchParams.set('next', pathname);
+  for (const [key, value] of Object.entries(extraParams)) {
+    loginUrl.searchParams.set(key, value);
+  }
+  return NextResponse.redirect(loginUrl);
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -22,39 +47,58 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseEnv = getSupabaseEnv();
   // Local dev without Supabase configured: no auth wall.
-  if (!url || !key) return NextResponse.next();
+  if (supabaseEnv.status === 'unconfigured') return NextResponse.next();
+  if (supabaseEnv.status === 'invalid') {
+    // Set but unusable (stray quotes, missing protocol, half-configured…).
+    // Fail closed with an explanation instead of crashing the middleware.
+    console.error(`[auth] Supabase env is invalid: ${supabaseEnv.problem}`);
+    return redirectToLogin(request, pathname, { error: 'config' });
+  }
 
   let response = NextResponse.next({ request });
-  const supabase = createServerClient(url, key, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
+  let user: { email?: string } | null = null;
+  try {
+    const supabase = createServerClient(supabaseEnv.url, supabaseEnv.anonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet: CookieToSet[]) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
       },
-      setAll(cookiesToSet: CookieToSet[]) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options)
-        );
-      },
-    },
-  });
+    });
+    ({
+      data: { user },
+    } = await supabase.auth.getUser());
+  } catch (e) {
+    // Supabase unreachable or misbehaving — fail closed, don't 500 the site.
+    console.error(
+      `[auth] Failed to resolve session: ${e instanceof Error ? e.message : String(e)}`
+    );
+    return redirectToLogin(request, pathname, { error: 'auth-unavailable' });
+  }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const ownerEmail = (process.env.OWNER_EMAIL ?? '').toLowerCase();
-  const isOwner = user?.email && user.email.toLowerCase() === ownerEmail;
+  const ownerEmail = getOwnerEmail();
+  const isOwner = Boolean(
+    user?.email && ownerEmail && user.email.trim().toLowerCase() === ownerEmail
+  );
 
   if (!isOwner) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    loginUrl.searchParams.set('next', pathname);
-    return NextResponse.redirect(loginUrl);
+    // Signed in but rejected — tell the login page why so it can explain
+    // (OWNER_EMAIL unset vs. signed in with a different account).
+    const extra: Record<string, string> = {};
+    if (user?.email) {
+      extra.denied = user.email;
+      if (!ownerEmail) extra.reason = 'owner-unset';
+    }
+    return redirectToLogin(request, pathname, extra);
   }
 
   return response;

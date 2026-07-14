@@ -1,10 +1,11 @@
 'use client';
 
 import { createBrowserClient } from '@supabase/ssr';
+import { getSupabaseEnv } from '@/lib/env';
 
+/** Browser Supabase client, or null when auth isn't configured (or misconfigured). */
 export function createClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createBrowserClient(url, key);
+  const env = getSupabaseEnv();
+  if (env.status !== 'ok') return null;
+  return createBrowserClient(env.url, env.anonKey);
 }

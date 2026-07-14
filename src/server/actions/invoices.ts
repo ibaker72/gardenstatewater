@@ -2,9 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { getAppUrl } from '@/lib/env';
 import { prisma } from '@/lib/prisma';
 import { round2 } from '@/lib/pricing-core';
 import { sendEmail } from '@/lib/email';
+import { applyInvoicePayment } from '@/lib/payments';
 import { checkoutUrlForInvoice, stripeConfigured } from '@/lib/stripe';
 import { money, shortDate } from '@/lib/format';
 import type { PaymentMethod } from '@prisma/client';
@@ -50,7 +52,7 @@ export async function sendInvoice(invoiceId: string) {
   });
   if (!invoice.customer.email) return;
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = getAppUrl();
   const payUrl = stripeConfigured()
     ? `${appUrl}/api/pay/${invoice.id}`
     : `${appUrl}/portal/${invoice.customer.portalToken}`;
@@ -102,36 +104,6 @@ export async function logInvoicePayment(invoiceId: string, form: FormData) {
   revalidatePath('/');
 }
 
-/** Shared by manual logging and the Stripe webhook. */
-export async function applyInvoicePayment(
-  invoiceId: string,
-  amount: number,
-  method: PaymentMethod,
-  reference: string | null
-) {
-  await prisma.$transaction(async (tx) => {
-    const invoice = await tx.invoice.findUniqueOrThrow({
-      where: { id: invoiceId },
-      include: { orders: true },
-    });
-    await tx.payment.create({
-      data: { customerId: invoice.customerId, invoiceId, method, amount, reference },
-    });
-    const amountPaid = round2(invoice.amountPaid + amount);
-    const paidInFull = amountPaid >= invoice.total - 0.005;
-    await tx.invoice.update({
-      where: { id: invoiceId },
-      data: { amountPaid, status: paidInFull ? 'PAID' : 'PARTIALLY_PAID' },
-    });
-    if (paidInFull) {
-      await tx.order.updateMany({
-        where: { invoiceId, status: 'DELIVERED' },
-        data: { status: 'PAID', paymentMethod: method },
-      });
-    }
-  });
-}
-
 export async function voidInvoice(invoiceId: string) {
   await prisma.$transaction([
     prisma.order.updateMany({ where: { invoiceId }, data: { invoiceId: null } }),
@@ -148,7 +120,7 @@ export async function sendPaymentReminder(invoiceId: string) {
   });
   if (!invoice.customer.email) return;
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = getAppUrl();
   const daysOverdue = Math.max(
     0,
     Math.floor((Date.now() - invoice.dueDate.getTime()) / 86_400_000)

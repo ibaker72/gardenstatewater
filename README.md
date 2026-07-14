@@ -81,10 +81,63 @@ Enable **Geocoding API**, **Distance Matrix API**, and **Maps Embed API** on one
 npm i -g vercel && vercel --prod
 ```
 
-Then in the Vercel project settings:
-- add every env var from `.env.example`,
-- set `CRON_SECRET` (any random string) — Vercel Cron sends it automatically and
-  `vercel.json` already schedules `/api/cron/daily` for 11:00 UTC every morning.
+#### Environment variables (Vercel → Settings → Environment Variables)
+
+Paste **raw values only — no quotes, no leading/trailing spaces**. A value like
+`"https://…"` (with quotes) is stored literally and breaks URL parsing. After
+**any** env change you must redeploy: values are read at runtime by the
+serverless functions, and `NEXT_PUBLIC_*` values are additionally **baked into
+the build**, so an existing deployment never picks up new values.
+
+| Variable | Required | Production | Preview | Development | Notes |
+|---|---|---|---|---|---|
+| `DATABASE_URL` | ✅ | ✅ | ✅ | ✅ | Supabase **transaction pooler** string (port 6543, `pgbouncer=true`) |
+| `DIRECT_URL` | ✅ | ✅ | ✅ | ✅ | Supabase **session pooler** string (port 5432); used by migrations |
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | ✅ | ✅ | ✅ | `https://<project-ref>.supabase.co` — must be a valid https URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | ✅ | ✅ | ✅ | Public anon key (safe for browsers) |
+| `OWNER_EMAIL` | ✅ | ✅ | ✅ | ✅ | The only account admitted to the admin app |
+| `NEXT_PUBLIC_APP_URL` | ✅ | ✅ | ✅ | ✅ | Production: `https://gardenstatewater.com` (no trailing slash) |
+| `CRON_SECRET` | ✅ | ✅ | ✅ | — | Any random string; Vercel Cron sends it automatically |
+| `STRIPE_SECRET_KEY` | optional | ✅ | test key | test key | Server-only secret — never `NEXT_PUBLIC_` |
+| `STRIPE_WEBHOOK_SECRET` | optional | ✅ | test secret | test secret | From the webhook endpoint config — server-only secret |
+| `GOOGLE_MAPS_API_KEY` | optional | ✅ | ✅ | ✅ | Server: geocoding + distance matrix |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | optional | ✅ | ✅ | ✅ | Client: embedded route map |
+| `RESEND_API_KEY`, `EMAIL_FROM` | optional | ✅ | — | — | Without them, email logs to console |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | optional | ✅ | — | — | Without them, SMS falls back to email |
+
+Example — in the Vercel dashboard enter exactly:
+
+```
+NEXT_PUBLIC_APP_URL
+https://gardenstatewater.com
+```
+
+not `"https://gardenstatewater.com"`.
+
+Missing optional integrations never crash the site; a **malformed required
+value** locks the admin app to `/login` with an explanation (it does not 500).
+`/api/health` reports database connectivity and configuration status at a
+glance.
+
+#### Safe deployment sequence
+
+1. Confirm every required variable above exists in the **Production**
+   environment (a value set only for Preview/Development does not exist in
+   Production) and contains no quotes or stray whitespace.
+2. Deploy (push to `main`, or promote a verified preview).
+3. `GET /` → 200 (login page or dashboard, never "Internal Server Error").
+4. `GET /api/health` → `{"db":"ok", …}`.
+5. `GET /api/stripe/webhook` → 405.
+6. Stripe dashboard → the webhook endpoint → *Send test event*
+   (`checkout.session.completed`) → expect 2xx.
+7. Run a test-mode checkout against a test invoice and confirm the invoice
+   flips to PAID.
+8. Only after test mode works, switch to live keys + live webhook secret and
+   redeploy.
+
+**Rollback:** Vercel → Deployments → previous READY production deployment →
+"Instant Rollback" (or `vercel rollback`). Env-var mistakes roll back by
+restoring the old value **and redeploying**.
 
 ## What's inside
 
