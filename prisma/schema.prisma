@@ -144,6 +144,9 @@ model Customer {
   dispenserRental  Boolean          @default(false) // renting a dispenser (monthly fee)
   paymentPref      PaymentMethod? // how they usually like to pay
   portalToken      String           @unique @default(cuid())
+  portalAccess     Boolean          @default(true) // owner can switch the portal off per customer
+  portalPin        String? // sha256(customerId:pin) — fallback login for customers without phone/email
+  portalLastLoginAt DateTime?
   birthday         DateTime?
   startedAt        DateTime         @default(now())
   createdAt        DateTime         @default(now())
@@ -155,6 +158,8 @@ model Customer {
   commLogs  CommLog[]
   requests  PortalRequest[]
   notified  NotificationLog[]
+  portalSessions PortalSession[]
+  portalLoginCodes PortalLoginCode[]
 
   @@index([zoneId])
   @@index([status])
@@ -172,6 +177,38 @@ model CommLog {
 
   @@index([customerId])
   @@map("comm_logs")
+}
+
+// A logged-in portal session (30 days). The cookie holds the raw token;
+// only its sha256 lives here, so a database leak can't hijack sessions.
+model PortalSession {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([customerId])
+  @@map("portal_sessions")
+}
+
+// One-time 6-digit login codes (10-minute expiry, 5 verify attempts,
+// max 5 codes per customer per hour).
+model PortalLoginCode {
+  id         String    @id @default(cuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  codeHash   String
+  channel    String // sms | email | console
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId])
+  @@map("portal_login_codes")
 }
 
 // Requests submitted from the customer portal (extra delivery, pause, contact update)
