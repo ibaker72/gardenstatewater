@@ -16,7 +16,9 @@ const PUBLIC_PREFIXES = [
   '/api/health',
   '/sw.js',
   '/manifest.webmanifest',
+  '/portal.webmanifest',
   '/offline',
+  '/offline.html', // the SW precaches this at install — it must never redirect to /login
 ];
 
 /**

@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: { default: 'Garden State Water', template: '%s · Garden State Water' },
   description: 'Water delivery business platform — CRM, routes, invoicing, and more.',
   manifest: '/manifest.webmanifest',
+  icons: { apple: '/icons/apple-touch-icon.png' },
 };
 
 export const viewport: Viewport = {
@@ -24,7 +25,14 @@ try {
   }
 } catch {}
 if ('serviceWorker' in navigator) {
-  addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(() => {
+      // The very first visit isn't service-worker-controlled yet, so the
+      // worker never sees (or caches) it. Cache it from here so even a
+      // customer's first page works offline. Keep the name in sync w/ sw.js.
+      caches.open('gsw-v2').then((c) => c.add(location.pathname + location.search)).catch(() => {});
+    }).catch(() => {});
+  });
 }
 `;
 
