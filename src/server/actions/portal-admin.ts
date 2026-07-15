@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { getAppUrl } from '@/lib/env';
 import { sendEmail, sendSms } from '@/lib/email';
-import { shortDate, WEEKDAYS } from '@/lib/format';
+import { notifyDeliveryConfirmed } from '@/lib/notify-customer';
 import { getConfig, quoteOrder } from '@/lib/pricing';
 import { hashPin } from '@/lib/portal-auth';
 import { parseAccountChangeLines } from '@/lib/account-changes';
@@ -15,20 +15,6 @@ import { parseAccountChangeLines } from '@/lib/account-changes';
 function refreshRequestViews() {
   revalidatePath('/requests');
   revalidatePath('/');
-}
-
-/** Tell the customer their delivery is on. SMS first, email fallback. */
-async function confirmDeliveryToCustomer(
-  customer: { id: string; phone: string | null; email: string | null },
-  date: Date
-) {
-  const when = `${WEEKDAYS[date.getDay()]}, ${shortDate(date)}`;
-  const body = `Your Garden State Water delivery is confirmed for ${when}. Please leave your empty jugs out. Reply if you need to change anything.`;
-  if (customer.phone) {
-    await sendSms({ to: customer.phone, body, type: 'DELIVERY_REMINDER', customerId: customer.id, fallbackEmail: customer.email });
-  } else if (customer.email) {
-    await sendEmail({ to: customer.email, subject: 'Your water delivery is confirmed 💧', body, type: 'DELIVERY_REMINDER', customerId: customer.id });
-  }
 }
 
 /**
@@ -74,7 +60,7 @@ export async function approvePortalRequest(id: string) {
           },
         },
       });
-      await confirmDeliveryToCustomer(customer, request.requestedDate);
+      await notifyDeliveryConfirmed(customer, request.requestedDate);
       revalidatePath('/orders');
       break;
     }

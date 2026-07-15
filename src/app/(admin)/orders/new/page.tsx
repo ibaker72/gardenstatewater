@@ -64,6 +64,10 @@ export default async function NewOrderPage({
           <label className="label">Special instructions</label>
           <input name="instructions" className="input" placeholder="Optional" />
         </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="notifyCustomer" defaultChecked className="h-4 w-4" />
+          Text the customer a delivery confirmation
+        </label>
         <button type="submit" className="btn-primary w-full md:w-auto">
           Create order
         </button>

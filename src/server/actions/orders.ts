@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { getConfig, quoteOrder } from '@/lib/pricing';
+import { notifyDeliveryConfirmed, notifyPaymentReceived } from '@/lib/notify-customer';
 import { JUG_SKU } from '@/lib/data';
 import type { OrderStatus, PaymentMethod } from '@prisma/client';
 
@@ -31,7 +32,7 @@ export async function createOrder(form: FormData) {
   const deliveryDate = new Date(String(form.get('deliveryDate')));
   const instructions = (form.get('instructions') as string | null)?.trim() || null;
 
-  const { quote } = await buildQuote(customerId, {
+  const { quote, customer } = await buildQuote(customerId, {
     refillJugs: num(form, 'refillJugs'),
     newJugs: num(form, 'newJugs'),
     bottleCases: num(form, 'bottleCases'),
@@ -58,6 +59,10 @@ export async function createOrder(form: FormData) {
       },
     },
   });
+
+  if (form.get('notifyCustomer') === 'on') {
+    await notifyDeliveryConfirmed(customer, deliveryDate);
+  }
 
   revalidatePath('/orders');
   revalidatePath('/');
@@ -173,7 +178,10 @@ export async function logOrderPayment(orderId: string, form: FormData) {
   const reference = (form.get('reference') as string | null)?.trim() || null;
   if (amount <= 0) return;
 
-  const order = await prisma.order.findUniqueOrThrow({ where: { id: orderId } });
+  const order = await prisma.order.findUniqueOrThrow({
+    where: { id: orderId },
+    include: { customer: true },
+  });
   await prisma.$transaction([
     prisma.payment.create({
       data: { customerId: order.customerId, method, amount, reference, note: `Order #${order.number}` },
@@ -183,6 +191,7 @@ export async function logOrderPayment(orderId: string, form: FormData) {
       data: { status: 'PAID', paymentMethod: method, deliveredAt: order.deliveredAt ?? new Date() },
     }),
   ]);
+  await notifyPaymentReceived(order.customer, amount);
 
   revalidatePath('/orders');
   revalidatePath(`/orders/${orderId}`);

@@ -6,6 +6,7 @@ import { getAppUrl } from '@/lib/env';
 import { prisma } from '@/lib/prisma';
 import { round2 } from '@/lib/pricing-core';
 import { sendEmail } from '@/lib/email';
+import { notifyNewInvoice, notifyPaymentReceived } from '@/lib/notify-customer';
 import { applyInvoicePayment } from '@/lib/payments';
 import { checkoutUrlForInvoice, stripeConfigured } from '@/lib/stripe';
 import { money, shortDate } from '@/lib/format';
@@ -83,6 +84,11 @@ Thanks for your business!`,
     customerId: invoice.customerId,
   });
 
+  // A short text nudge with the pay link, on top of the detailed email.
+  if (stripeConfigured()) {
+    await notifyNewInvoice(invoice.customer, invoice, invoice.total - invoice.amountPaid, payUrl);
+  }
+
   await prisma.invoice.update({
     where: { id: invoiceId },
     data: { status: invoice.status === 'DRAFT' ? 'SENT' : invoice.status, sentAt: new Date() },
@@ -99,6 +105,11 @@ export async function logInvoicePayment(invoiceId: string, form: FormData) {
   if (!Number.isFinite(amount) || amount <= 0) return;
 
   await applyInvoicePayment(invoiceId, amount, method, reference);
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    include: { customer: true },
+  });
+  if (invoice) await notifyPaymentReceived(invoice.customer, amount);
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath('/invoices');
   revalidatePath('/');
