@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Mail, MapPin, MessageSquare, Pencil, Phone } from 'lucide-react';
+import { KeyRound, Mail, MapPin, MessageSquare, Pencil, Phone, Send } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import { customerBalance, isAtRisk, lastDeliveryDates } from '@/lib/data';
 import { fullAddress, money, PLAN_LABELS, shortDate, timeAgoDays, WEEKDAYS } from '@/lib/format';
 import { addCommLog, adjustCustomerJugs, setCustomerStatus } from '@/server/actions/customers';
+import { sendPortalInvite, setPortalAccess, setPortalPin } from '@/server/actions/portal-admin';
 import { Badge, LinkButton, ORDER_STATUS_TONE, PageHeader } from '@/components/ui';
 import { STATUS_LABELS } from '@/lib/format';
 
@@ -30,6 +31,9 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
   const daysSince = timeAgoDays(lastDelivery);
 
   const logComm = addCommLog.bind(null, customer.id);
+  const invite = sendPortalInvite.bind(null, customer.id);
+  const toggleAccess = setPortalAccess.bind(null, customer.id, !customer.portalAccess);
+  const setPin = setPortalPin.bind(null, customer.id);
 
   async function adjustJugs(form: FormData) {
     'use server';
@@ -150,6 +154,52 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
               </>
             )}
           </form>
+
+          {/* Customer portal management */}
+          <div className="border-t border-slate-100 pt-3 dark:border-navy-800">
+            <div className="mb-1.5 flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Customer portal</h3>
+              <Badge tone={customer.portalAccess ? 'green' : 'slate'}>
+                {customer.portalAccess ? 'on' : 'off'}
+              </Badge>
+            </div>
+            <p className="mb-2 text-xs text-slate-400">
+              Last signed in:{' '}
+              {customer.portalLastLoginAt ? shortDate(customer.portalLastLoginAt) : 'never'} · PIN:{' '}
+              {customer.portalPin ? 'set' : 'not set'}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {customer.portalAccess && (customer.phone || customer.email) && (
+                <form action={invite}>
+                  <button className="btn-secondary" title="Text/email them their sign-in link">
+                    <Send size={14} /> Send portal invite
+                  </button>
+                </form>
+              )}
+              <form action={toggleAccess}>
+                <button
+                  className={`btn-secondary ${customer.portalAccess ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}
+                  title={customer.portalAccess ? 'Blocks sign-in and ends their sessions' : 'Allow portal sign-in again'}
+                >
+                  {customer.portalAccess ? 'Turn portal off' : 'Turn portal on'}
+                </button>
+              </form>
+            </div>
+            <form action={setPin} className="mt-2 flex gap-2">
+              <input
+                name="pin"
+                inputMode="numeric"
+                pattern="\d{4}"
+                maxLength={4}
+                placeholder={customer.portalPin ? 'New 4-digit PIN' : '4-digit PIN'}
+                className="input w-36"
+                title="4 digits; leave empty and save to remove the PIN"
+              />
+              <button className="btn-secondary" title="Set the PIN (empty clears it)">
+                <KeyRound size={14} /> Save PIN
+              </button>
+            </form>
+          </div>
         </div>
 
         {/* Jugs & balance */}

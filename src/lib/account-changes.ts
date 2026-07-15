@@ -21,6 +21,10 @@ export const ACCOUNT_FIELD_LABELS: Record<keyof AccountFields, string> = {
 
 const clean = (v: string | null | undefined) => (v ?? '').trim();
 
+const LABEL_TO_FIELD = Object.fromEntries(
+  Object.entries(ACCOUNT_FIELD_LABELS).map(([field, label]) => [label, field])
+) as Record<string, keyof AccountFields>;
+
 /**
  * Human-readable list of requested changes ("Phone: (973) 555-0142 → (973)
  * 555-9999"), or an empty list when nothing actually differs — the owner
@@ -36,4 +40,25 @@ export function diffAccountChanges(current: AccountFields, requested: AccountFie
     }
   }
   return lines;
+}
+
+/**
+ * Inverse of diffAccountChanges: reads the "Label: before → after" lines
+ * back into field values so the owner's Approve button can apply them.
+ * Unrecognized lines are skipped rather than guessed at.
+ */
+export function parseAccountChangeLines(detail: string): Partial<AccountFields> {
+  const changes: Partial<AccountFields> = {};
+  for (const line of detail.split('\n')) {
+    const colon = line.indexOf(': ');
+    if (colon === -1) continue;
+    const field = LABEL_TO_FIELD[line.slice(0, colon)];
+    if (!field) continue;
+    const rest = line.slice(colon + 2);
+    const arrow = rest.lastIndexOf(' → ');
+    if (arrow === -1) continue;
+    const after = rest.slice(arrow + 3).trim();
+    changes[field] = after === '—' ? null : after;
+  }
+  return changes;
 }

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { diffAccountChanges, type AccountFields } from '../src/lib/account-changes';
+import {
+  diffAccountChanges,
+  parseAccountChangeLines,
+  type AccountFields,
+} from '../src/lib/account-changes';
 
 const onFile: AccountFields = {
   name: 'Maria Alvarez',
@@ -39,5 +43,32 @@ describe('diffAccountChanges', () => {
       'Email: — → new@example.com',
       'Delivery notes: Ring bell twice → —',
     ]);
+  });
+});
+
+describe('parseAccountChangeLines (what Approve applies)', () => {
+  it('round-trips a diff back into field values', () => {
+    const requested = {
+      ...onFile,
+      phone: '(973) 555-9999',
+      deliveryNotes: 'Leave at side gate',
+    };
+    const detail = diffAccountChanges(onFile, requested).join('\n');
+    assert.deepEqual(parseAccountChangeLines(detail), {
+      phone: '(973) 555-9999',
+      deliveryNotes: 'Leave at side gate',
+    });
+  });
+
+  it('reads a cleared field as null and skips lines it does not recognize', () => {
+    const parsed = parseAccountChangeLines(
+      ['Email: old@example.com → —', 'Totally unknown: a → b', 'not even a line'].join('\n')
+    );
+    assert.deepEqual(parsed, { email: null });
+  });
+
+  it('keeps values that themselves contain an arrow', () => {
+    const parsed = parseAccountChangeLines('Delivery notes: gate → yard → Use gate → then yard');
+    assert.deepEqual(parsed, { deliveryNotes: 'then yard' });
   });
 });
