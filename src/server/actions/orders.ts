@@ -65,7 +65,7 @@ export async function createOrder(form: FormData) {
   }
 
   revalidatePath('/orders');
-  revalidatePath('/');
+  revalidatePath('/dashboard');
   redirect(`/orders/${order.id}`);
 }
 
@@ -73,7 +73,7 @@ export async function setOrderStatus(orderId: string, status: OrderStatus) {
   await prisma.order.update({ where: { id: orderId }, data: { status } });
   revalidatePath('/orders');
   revalidatePath(`/orders/${orderId}`);
-  revalidatePath('/');
+  revalidatePath('/dashboard');
 }
 
 /**
@@ -142,7 +142,7 @@ export async function markDelivered(orderId: string, form: FormData) {
   revalidatePath('/orders');
   revalidatePath(`/orders/${orderId}`);
   revalidatePath('/inventory');
-  revalidatePath('/');
+  revalidatePath('/dashboard');
 }
 
 /**
@@ -167,7 +167,7 @@ export async function markAllDeliveredForDate(form: FormData) {
 
   revalidatePath('/orders');
   revalidatePath('/inventory');
-  revalidatePath('/');
+  revalidatePath('/dashboard');
   redirect(`/orders?date=${dateStr}&delivered=${delivered}`);
 }
 
@@ -195,7 +195,7 @@ export async function logOrderPayment(orderId: string, form: FormData) {
 
   revalidatePath('/orders');
   revalidatePath(`/orders/${orderId}`);
-  revalidatePath('/');
+  revalidatePath('/dashboard');
 }
 
 export async function cancelOrder(orderId: string) {
@@ -271,6 +271,6 @@ export async function generateSubscriptionOrders(form: FormData) {
   }
 
   revalidatePath('/orders');
-  revalidatePath('/');
+  revalidatePath('/dashboard');
   redirect(`/orders?date=${dateStr}&generated=${created}`);
 }

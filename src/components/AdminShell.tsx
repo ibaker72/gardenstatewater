@@ -17,7 +17,7 @@ import {
 import { ThemeToggle } from './ThemeToggle';
 
 const NAV = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/customers', label: 'Customers', icon: Users },
   { href: '/orders', label: 'Orders', icon: Truck },
   { href: '/routes', label: 'Routes', icon: Map },
@@ -32,7 +32,7 @@ const NAV = [
 const MOBILE_NAV = NAV.slice(0, 5);
 
 function isActive(pathname: string, href: string) {
-  return href === '/' ? pathname === '/' : pathname.startsWith(href);
+  return pathname === href || pathname.startsWith(href + '/');
 }
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -73,7 +73,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile top bar */}
       <header className="no-print sticky top-0 z-30 flex items-center justify-between bg-navy-950 px-4 py-3 text-white md:hidden">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/dashboard" className="flex items-center gap-2">
           <Droplets className="text-aqua-400" size={20} />
           <span className="text-sm font-bold">Garden State Water</span>
         </Link>

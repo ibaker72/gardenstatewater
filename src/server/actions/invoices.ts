@@ -112,7 +112,7 @@ export async function logInvoicePayment(invoiceId: string, form: FormData) {
   if (invoice) await notifyPaymentReceived(invoice.customer, amount);
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath('/invoices');
-  revalidatePath('/');
+  revalidatePath('/dashboard');
 }
 
 export async function voidInvoice(invoiceId: string) {

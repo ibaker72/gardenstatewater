@@ -6,6 +6,7 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 // Routes that never require the owner session.
 const PUBLIC_PREFIXES = [
+  '/', // the public landing page (exact match only — see the check below)
   '/login',
   '/portal',
   '/api/stripe/webhook',

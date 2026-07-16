@@ -14,7 +14,7 @@ import { parseAccountChangeLines } from '@/lib/account-changes';
 
 function refreshRequestViews() {
   revalidatePath('/requests');
-  revalidatePath('/');
+  revalidatePath('/dashboard');
 }
 
 /**

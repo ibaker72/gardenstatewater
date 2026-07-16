@@ -67,7 +67,7 @@ function LoginForm() {
           );
           return;
         }
-        router.push(params.get('next') ?? '/');
+        router.push(params.get('next') ?? '/dashboard');
         return;
       }
 
@@ -80,7 +80,7 @@ function LoginForm() {
       // Signed in — but the admin app only admits the OWNER_EMAIL account.
       const check: AuthCheck = await (await fetch('/api/auth/check')).json();
       if (check.isOwner) {
-        router.push(params.get('next') ?? '/');
+        router.push(params.get('next') ?? '/dashboard');
         router.refresh();
         return;
       }

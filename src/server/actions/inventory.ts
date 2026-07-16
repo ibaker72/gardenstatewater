@@ -36,7 +36,7 @@ export async function adjustStock(form: FormData) {
     prisma.inventoryMovement.create({ data: { itemId, delta, reason } }),
   ]);
   revalidatePath('/inventory');
-  revalidatePath('/');
+  revalidatePath('/dashboard');
 }
 
 export async function upsertSupplier(form: FormData) {

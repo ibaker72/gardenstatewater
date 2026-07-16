@@ -183,5 +183,5 @@ export async function requestCancel(token: string, form: FormData) {
 export async function resolvePortalRequest(id: string) {
   await prisma.portalRequest.update({ where: { id }, data: { resolved: true } });
   revalidatePath('/requests');
-  revalidatePath('/');
+  revalidatePath('/dashboard');
 }
