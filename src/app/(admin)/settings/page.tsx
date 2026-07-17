@@ -3,14 +3,17 @@ import { prisma } from '@/lib/prisma';
 import { getConfig } from '@/lib/pricing';
 import { money, shortDate, WEEKDAYS } from '@/lib/format';
 import { updateConfig } from '@/server/actions/pricing';
+import { addTestimonial, deleteTestimonial } from '@/server/actions/site';
 import { deleteZone, remapCustomerZones, runAutomationNow, upsertZone } from '@/server/actions/zones';
 import { Badge, PageHeader } from '@/components/ui';
 
 export default async function SettingsPage() {
-  const [config, zones, recentNotifications] = await Promise.all([
+  const [config, zones, recentNotifications, testimonials] = await Promise.all([
     getConfig(),
     prisma.zone.findMany({ orderBy: { name: 'asc' }, include: { _count: { select: { customers: true } } } }),
     prisma.notificationLog.findMany({ orderBy: { createdAt: 'desc' }, take: 25, include: { customer: true } }),
+    // Fail-soft until the testimonials migration lands in this environment.
+    prisma.testimonial.findMany({ orderBy: { createdAt: 'desc' } }).catch(() => []),
   ]);
 
   const integrations = [
@@ -166,6 +169,49 @@ export default async function SettingsPage() {
             </button>
           </div>
         </form>
+
+        {/* Website testimonials */}
+        <div className="card space-y-3 p-4">
+          <h2 className="font-semibold">Website testimonials</h2>
+          <p className="text-sm text-slate-500">
+            Real quotes from your customers, shown on gardenstatewater.com. The section stays hidden
+            until you add some — only use words customers actually said.
+          </p>
+          <ul className="space-y-2">
+            {testimonials.map((t) => {
+              const del = deleteTestimonial.bind(null, t.id);
+              return (
+                <li key={t.id} className="rounded-lg border border-slate-200 p-3 dark:border-navy-800">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm">“{t.quote}”</p>
+                      <p className="mt-1 text-xs font-medium text-slate-500">— {t.name}</p>
+                    </div>
+                    <form action={del}>
+                      <button className="p-1 text-slate-400 hover:text-red-600" aria-label="Delete testimonial">
+                        <Trash2 size={15} />
+                      </button>
+                    </form>
+                  </div>
+                </li>
+              );
+            })}
+            {testimonials.length === 0 && (
+              <li className="text-sm text-slate-400">None yet — the website hides the section.</li>
+            )}
+          </ul>
+          <form action={addTestimonial} className="space-y-2 border-t border-slate-100 pt-3 dark:border-navy-800">
+            <input name="quote" required className="input" placeholder='Quote — e.g. "Never lugging jugs from the store again."' />
+            <div className="flex gap-2">
+              <input name="name" required className="input flex-1" placeholder="Name — e.g. Maria A., Newark" />
+              <button className="btn-secondary">Add</button>
+            </div>
+          </form>
+          <p className="text-xs text-slate-400">
+            Photos: drop <code>hero.jpg</code> into <code>public/photos/</code> in the repo and the
+            website swaps its artwork for your photo automatically.
+          </p>
+        </div>
 
         {/* Integrations */}
         <div className="card p-4">

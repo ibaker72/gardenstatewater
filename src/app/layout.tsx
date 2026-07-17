@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next';
+import { PRODUCTION_APP_URL } from '@/lib/env';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(PRODUCTION_APP_URL),
   title: { default: 'Garden State Water', template: '%s · Garden State Water' },
   description: 'Water delivery business platform — CRM, routes, invoicing, and more.',
   manifest: '/manifest.webmanifest',

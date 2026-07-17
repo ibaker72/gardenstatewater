@@ -274,6 +274,18 @@ model PricingConfig {
   @@map("pricing_config")
 }
 
+// Real customer quotes the owner curates in Settings — shown on the
+// public landing page. Nothing renders until the owner adds some.
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String // "Maria A., Newark"
+  quote     String
+  featured  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("testimonials")
+}
+
 model CompetitorPrice {
   id             String   @id @default(cuid())
   competitor     String // "Competitor A"

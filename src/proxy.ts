@@ -18,6 +18,8 @@ const PUBLIC_PREFIXES = [
   '/sw.js',
   '/manifest.webmanifest',
   '/portal.webmanifest',
+  '/robots.txt',
+  '/sitemap.xml',
   '/offline',
   '/offline.html', // the SW precaches this at install — it must never redirect to /login
 ];
