@@ -58,7 +58,8 @@ async function main() {
       costPerGallon: 0.35,
       gasCostPerMile: 0.2,
       businessName: 'Garden State Water',
-      businessPhone: '(908) 555-0100',
+      // No businessPhone: the real number isn't confirmed yet, and the public
+      // site hides the phone entirely until a non-fictional one is configured.
       businessEmail: 'hello@gardenstatewater.com',
       businessAddress: 'Newark, NJ',
     },

@@ -9,6 +9,8 @@ const PUBLIC_PREFIXES = [
   '/', // the public landing page (exact match only — see the check below)
   '/login',
   '/portal',
+  '/privacy',
+  '/terms',
   '/api/stripe/webhook',
   '/api/cron',
   '/api/portal',

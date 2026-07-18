@@ -31,6 +31,22 @@ const config: Config = {
           800: '#1f506b',
           900: '#1e435b',
         },
+        // Marketing-site palette (public landing page only; the admin app
+        // keeps using the navy/aqua scales above).
+        brand: {
+          navy: '#0B2945',
+          deep: '#071E33',
+          blue: '#149BC2',
+          bluedark: '#0F7A9B',
+          aqua: '#DFF6FC',
+          mist: '#F4FBFD',
+          green: '#2E9B68',
+          ink: '#52677A',
+          line: '#D8EAF0',
+        },
+      },
+      maxWidth: {
+        site: '1220px',
       },
       fontFamily: {
         sans: ['system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
