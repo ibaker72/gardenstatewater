@@ -79,6 +79,21 @@ export async function POST(req: NextRequest) {
           break;
         }
 
+        if (meta.kind === 'signup' && meta.customerId) {
+          await applySignupCheckout({
+            sessionId: session.id,
+            customerId: meta.customerId,
+            mode: session.mode,
+            amountTotalCents: session.amount_total ?? 0,
+            planKey: meta.planKey ?? null,
+          });
+          console.log(
+            `[stripe-webhook] ${event.type} ${event.id}: signup session for customer ${meta.customerId} recorded.`
+          );
+          await sendPaymentReceipt(meta.customerId, session.amount_total ?? 0);
+          break;
+        }
+
         const invoiceId = meta.invoiceId;
         if (!invoiceId) {
           // Not one of ours (or metadata was lost) — acknowledge, don't crash.
@@ -127,6 +142,55 @@ export function GET() {
     { error: 'Method Not Allowed' },
     { status: 405, headers: { Allow: 'POST' } }
   );
+}
+
+/**
+ * Record a completed signup checkout. Idempotent via the session id: a
+ * redelivered webhook is a no-op. One-time signups get a Payment row (their
+ * order is invoiced/settled by the owner on delivery); subscription signups
+ * get a comm-log entry — recurring charges live in Stripe, not the invoice
+ * ledger.
+ */
+async function applySignupCheckout(input: {
+  sessionId: string;
+  customerId: string;
+  mode: string;
+  amountTotalCents: number;
+  planKey: string | null;
+}) {
+  const duplicate = await prisma.payment.findFirst({
+    where: { method: 'STRIPE', reference: input.sessionId },
+    select: { id: true },
+  });
+  const alreadyLogged =
+    duplicate ??
+    (await prisma.commLog.findFirst({
+      where: { note: { contains: input.sessionId } },
+      select: { id: true },
+    }));
+  if (alreadyLogged) return;
+
+  if (input.mode === 'payment') {
+    await prisma.payment.create({
+      data: {
+        customerId: input.customerId,
+        method: 'STRIPE',
+        amount: Math.round(input.amountTotalCents) / 100,
+        reference: input.sessionId,
+        note: 'One-time delivery paid at signup (Stripe Checkout)',
+      },
+    });
+  } else {
+    await prisma.commLog.create({
+      data: {
+        customerId: input.customerId,
+        channel: 'NOTE',
+        note: `Stripe subscription started${input.planKey ? ` (${input.planKey} plan)` : ''} — first payment ${money(
+          input.amountTotalCents / 100
+        )} received. Session ${input.sessionId}`,
+      },
+    });
+  }
 }
 
 /** Parse "Pay All" metadata: a JSON array of [invoiceId, cents] pairs. */

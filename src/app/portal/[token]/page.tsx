@@ -3,6 +3,7 @@ import {
   CalendarPlus,
   CreditCard,
   Droplets,
+  Gift,
   MessageCircle,
   PauseCircle,
   Truck,
@@ -11,6 +12,7 @@ import { prisma } from '@/lib/prisma';
 import { customerBalance } from '@/lib/data';
 import { getConfig } from '@/lib/pricing';
 import { friendlyDay, money, PLAN_LABELS, shortDate } from '@/lib/format';
+import { ensureReferralCode } from '@/lib/referrals';
 import { stripeConfigured } from '@/lib/stripe';
 import { requestPauseOrResume } from '@/server/actions/portal';
 import { SignOutButton } from '@/components/portal/SignOutButton';
@@ -39,7 +41,16 @@ export default async function PortalHomePage({
   });
   if (!customer || !customer.portalAccess) notFound();
 
-  const [balance, config] = await Promise.all([customerBalance(customer.id), getConfig()]);
+  const [balance, config, referralCode, referralCredits] = await Promise.all([
+    customerBalance(customer.id),
+    getConfig(),
+    // Referral tables land with the phase-4 migration; fail soft until then.
+    ensureReferralCode(customer.id).catch(() => null),
+    prisma.referralCredit
+      .findMany({ where: { customerId: customer.id }, orderBy: { createdAt: 'desc' } })
+      .catch(() => []),
+  ]);
+  const unredeemedCredits = referralCredits.filter((c) => !c.redeemedAt);
   const upcoming = customer.orders
     .filter((o) => o.status === 'SCHEDULED' || o.status === 'OUT_FOR_DELIVERY')
     .sort((a, b) => a.deliveryDate.getTime() - b.deliveryDate.getTime());
@@ -268,6 +279,41 @@ export default async function PortalHomePage({
             </ul>
           )}
         </section>
+
+        {/* Refer a neighbor */}
+        {referralCode && (
+          <section className={card} id="refer">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                <Gift size={24} />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-navy-900">Refer a neighbor</h2>
+                <p className="text-base text-slate-500">
+                  They enter your code at signup — you both get a free jug.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-between rounded-2xl border-2 border-dashed border-aqua-200 bg-aqua-50 px-4 py-3">
+              <span className="text-xl font-bold tracking-widest text-navy-900">{referralCode}</span>
+              <a
+                href={`sms:?&body=${encodeURIComponent(
+                  `Never haul a water jug again — Garden State Water delivers. Use my code ${referralCode} at gardenstatewater.com/signup and we both get a free jug!`
+                )}`}
+                className="rounded-xl bg-aqua-500 px-4 py-2 text-base font-semibold text-white hover:bg-aqua-600"
+              >
+                Share
+              </a>
+            </div>
+            {unredeemedCredits.length > 0 && (
+              <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-base font-medium text-emerald-800">
+                🎉 You have {unredeemedCredits.length} free jug credit
+                {unredeemedCredits.length === 1 ? '' : 's'} — we’ll apply
+                {unredeemedCredits.length === 1 ? ' it' : ' them'} to an upcoming delivery.
+              </p>
+            )}
+          </section>
+        )}
 
         {/* Account summary */}
         <section className={card} id="contact">

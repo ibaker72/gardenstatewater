@@ -1,6 +1,9 @@
 import Stripe from 'stripe';
 import { cleanEnv, getAppUrl } from './env';
 import { prisma } from './prisma';
+import { getConfig } from './pricing';
+import { annualPrice, firstDeliveryDiscountCents, toCents } from './plan-pricing';
+import { launchPlans } from '@/config/launch-service-area';
 
 // Server-only module: reads STRIPE_SECRET_KEY. Never import from client
 // components — browser code gets no Stripe SDK (payments run through
@@ -79,6 +82,134 @@ export async function checkoutUrlForInvoice(invoiceId: string): Promise<string |
     data: { stripeSessionId: session.id },
   });
 
+  return session.url;
+}
+
+/**
+ * Checkout for the public signup flow. Everything about the price is computed
+ * server-side from `site_plans` + `pricing_config` — the client only names a
+ * plan key. Returns null when Stripe isn't configured (the signup then
+ * completes as pay-on-first-delivery).
+ *
+ * - Subscriptions: `mode: 'subscription'` billed monthly, or yearly with the
+ *   configured free months baked into the annual amount. The launch offer
+ *   ("first delivery 50% off") is a one-time coupon worth half of one
+ *   delivery, applied to the first invoice.
+ * - One-time deliveries: `mode: 'payment'` for jugs + delivery fee.
+ */
+export async function checkoutUrlForSignup(args: {
+  customerId: string;
+  planKey: string;
+  billing: 'monthly' | 'annual';
+  oneTimeJugs?: number;
+  orderId?: string | null;
+}): Promise<string | null> {
+  const stripe = getStripe();
+  if (!stripe) return null;
+
+  const [customer, config, planRow] = await Promise.all([
+    prisma.customer.findUniqueOrThrow({ where: { id: args.customerId } }),
+    getConfig(),
+    prisma.sitePlan.findUnique({ where: { key: args.planKey } }).catch(() => null),
+  ]);
+  const plan =
+    planRow ??
+    (() => {
+      const fallback = launchPlans.find((p) => p.key === args.planKey);
+      return fallback
+        ? { name: fallback.name, monthlyPrice: fallback.monthlyPrice, isSubscription: fallback.isSubscription }
+        : null;
+    })();
+  if (!plan) return null;
+
+  const appUrl = getAppUrl();
+  const successUrl = `${appUrl}/signup/success?v=${plan.isSubscription ? 'subscription' : 'one_time'}&paid=1`;
+  const cancelUrl = `${appUrl}/signup?plan=${encodeURIComponent(args.planKey)}&canceled=1`;
+
+  if (!plan.isSubscription) {
+    const jugs = Math.max(1, args.oneTimeJugs ?? 2);
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+      {
+        price_data: {
+          currency: 'usd',
+          product_data: { name: `5-gallon spring water jug — one-time delivery` },
+          unit_amount: toCents(config.oneTimeJugPrice),
+        },
+        quantity: jugs,
+      },
+    ];
+    if (config.oneTimeDeliveryFee > 0) {
+      lineItems.push({
+        price_data: {
+          currency: 'usd',
+          product_data: { name: 'Delivery fee' },
+          unit_amount: toCents(config.oneTimeDeliveryFee),
+        },
+        quantity: 1,
+      });
+    }
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      customer_email: customer.email ?? undefined,
+      line_items: lineItems,
+      metadata: {
+        kind: 'signup',
+        flow: 'one_time',
+        customerId: customer.id,
+        ...(args.orderId ? { orderId: args.orderId } : {}),
+      },
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    });
+    return session.url;
+  }
+
+  const annual = args.billing === 'annual';
+  const unitAmount = annual
+    ? toCents(annualPrice(plan.monthlyPrice, config.annualFreeMonths))
+    : toCents(plan.monthlyPrice);
+
+  const discounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];
+  const discountCents = firstDeliveryDiscountCents(plan.monthlyPrice, config.firstDeliveryDiscountPct);
+  if (discountCents > 0) {
+    const coupon = await stripe.coupons.create({
+      amount_off: discountCents,
+      currency: 'usd',
+      duration: 'once',
+      name: `First delivery ${Math.round(config.firstDeliveryDiscountPct)}% off`,
+    });
+    discounts.push({ coupon: coupon.id });
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'subscription',
+    customer_email: customer.email ?? undefined,
+    line_items: [
+      {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `${plan.name} plan — Garden State Water`,
+            description: annual ? 'Billed yearly' : 'Billed monthly',
+          },
+          recurring: { interval: annual ? 'year' : 'month' },
+          unit_amount: unitAmount,
+        },
+        quantity: 1,
+      },
+    ],
+    discounts,
+    metadata: {
+      kind: 'signup',
+      flow: 'subscription',
+      customerId: customer.id,
+      planKey: args.planKey,
+      billing: args.billing,
+    },
+    subscription_data: { metadata: { customerId: customer.id, planKey: args.planKey } },
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+  });
   return session.url;
 }
 

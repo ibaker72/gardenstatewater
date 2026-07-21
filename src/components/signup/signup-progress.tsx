@@ -2,14 +2,20 @@
 
 import { Check } from 'lucide-react';
 
-const STEPS = ['Location', 'Delivery needs', 'Contact'] as const;
+const DEFAULT_STEPS = ['Plan', 'Details', 'Review'];
 
-/** Progress rail for the three input steps of the delivery request flow. */
-export function SignupProgress({ current }: { current: 1 | 2 | 3 }) {
+/** Progress rail for the input steps of the signup flow. */
+export function SignupProgress({
+  current,
+  labels = DEFAULT_STEPS,
+}: {
+  current: number;
+  labels?: string[];
+}) {
   return (
-    <ol className="flex items-center gap-2 sm:gap-3" aria-label="Request progress">
-      {STEPS.map((label, index) => {
-        const stepNumber = (index + 1) as 1 | 2 | 3;
+    <ol className="flex items-center gap-2 sm:gap-3" aria-label="Signup progress">
+      {labels.map((label, index) => {
+        const stepNumber = index + 1;
         const done = stepNumber < current;
         const active = stepNumber === current;
         return (
@@ -32,7 +38,7 @@ export function SignupProgress({ current }: { current: 1 | 2 | 3 }) {
             >
               {label}
             </span>
-            {stepNumber < STEPS.length && (
+            {stepNumber < labels.length && (
               <span aria-hidden="true" className={`h-px flex-1 ${done ? 'bg-brand-green/50' : 'bg-brand-line'}`} />
             )}
           </li>
