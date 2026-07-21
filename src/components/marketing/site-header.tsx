@@ -56,7 +56,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-brand-line bg-white/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-site items-center justify-between gap-2 px-5 py-3.5 sm:px-8">
         <a
-          href="#top"
+          href="/"
           className="flex items-center gap-2.5 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
         >
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-blue">
@@ -64,7 +64,7 @@ export function SiteHeader() {
           </span>
           <span className="leading-tight">
             <span className="block whitespace-nowrap font-bold text-brand-navy">{siteConfig.businessName}</span>
-            <span className="block whitespace-nowrap text-xs text-brand-ink">North Jersey water delivery</span>
+            <span className="block whitespace-nowrap text-xs text-brand-ink">{siteConfig.tagline}</span>
           </span>
         </a>
 
@@ -88,10 +88,10 @@ export function SiteHeader() {
             Customer Login
           </a>
           <a
-            href="#availability"
+            href={siteConfig.signupPath}
             className="inline-flex min-h-11 items-center whitespace-nowrap rounded-xl bg-brand-blue px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-bluedark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-navy"
           >
-            Check Availability
+            Start My Subscription
           </a>
         </div>
 
@@ -137,11 +137,11 @@ export function SiteHeader() {
                 Customer Login
               </a>
               <a
-                href="#availability"
+                href={siteConfig.signupPath}
                 onClick={close}
                 className="rounded-xl bg-brand-blue px-4 py-3 text-center text-base font-semibold text-white hover:bg-brand-bluedark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-navy"
               >
-                Check Availability
+                Start My Subscription
               </a>
             </div>
           </nav>

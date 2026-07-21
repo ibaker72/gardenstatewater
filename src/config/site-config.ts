@@ -1,11 +1,10 @@
 /**
  * Central public-site configuration.
  *
- * Everything business-sensitive that is NOT yet confirmed (pricing, delivery
- * days, fees, water source, service areas) is deliberately absent — the page
- * must not invent operational claims. Contact details live in the
- * database-backed settings row (PricingConfig, editable from /settings); this
- * file holds the launch-stage feature flags and static navigation.
+ * Contact details live in the database-backed settings row (PricingConfig,
+ * editable from /settings); prices come from `site_plans` + `pricing_config`;
+ * the serviceable-area list comes from `service_zips`. This file holds only
+ * static navigation and feature flags.
  *
  * Safe to import from client components: no secrets, no server-only modules.
  */
@@ -17,41 +16,26 @@ export interface SiteNavLink {
 
 export const siteConfig = {
   businessName: 'Garden State Water',
+  tagline: 'NJ & NY spring water delivery',
 
-  /** Launch-stage behavior: shows the announcement bar + early-customer copy. */
-  launchMode: true,
-
-  /** Prices are confirmed per-address for now — never rendered publicly. */
-  showPublicPricing: false,
-
-  /**
-   * Zone names come from owner-configured data, but the current zone list
-   * predates the final business model, so the public area list stays hidden
-   * until the owner confirms it. The ZIP checker still answers from the same
-   * data without naming routes.
-   */
-  showServiceAreaNames: false,
-
-  homeDeliveryEnabled: true,
-  businessDeliveryEnabled: true,
-  foundingCustomerProgramEnabled: true,
-
-  serviceAreaMessage: 'Now accepting early customers in select North Jersey communities.',
+  /** Public pricing launched in Phase 4 — plans + prices render from the DB. */
+  showPublicPricing: true,
 
   customerPortalPath: '/portal',
   /** Owner access stays reachable, but only through the discreet footer link. */
   ownerLoginPath: '/login',
+  signupPath: '/signup',
 
   /** No verified social profiles yet — the footer hides what isn't configured. */
   social: {} as Partial<Record<'facebook' | 'instagram' | 'google', string>>,
 
   navLinks: [
-    { label: 'Home Delivery', href: '#home-delivery' },
-    { label: 'Business Delivery', href: '#business-delivery' },
-    { label: 'Dispensers', href: '#dispensers' },
-    { label: 'How It Works', href: '#how-it-works' },
-    { label: 'Service Area', href: '#service-area' },
-    { label: 'FAQs', href: '#faq' },
+    { label: 'Plans & Pricing', href: '/#pricing' },
+    { label: 'Service Area', href: '/#service-area' },
+    { label: 'Deals', href: '/#deals' },
+    { label: 'How It Works', href: '/#how-it-works' },
+    { label: 'Why Us', href: '/#why-us' },
+    { label: 'FAQs', href: '/#faq' },
   ] satisfies SiteNavLink[],
 } as const;
 

@@ -2,7 +2,7 @@
 
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
-import { faqs } from '@/config/marketing-content';
+import { faqCopy, faqs } from '@/config/marketing-content';
 import { container, sectionEyebrow, sectionHeading } from './styles';
 
 /**
@@ -16,11 +16,10 @@ export function FaqSection() {
     <section id="faq" className="scroll-mt-24 bg-white py-16 md:py-24">
       <div className={`${container} grid gap-10 lg:grid-cols-[0.8fr_1.2fr]`}>
         <div>
-          <p className={sectionEyebrow}>Questions</p>
-          <h2 className={sectionHeading}>Frequently asked questions</h2>
+          <p className={sectionEyebrow}>{faqCopy.eyebrow}</p>
+          <h2 className={sectionHeading}>{faqCopy.heading}</h2>
           <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-brand-ink">
-            Details like pricing, bottle terms, and schedules are confirmed personally before your
-            first delivery — here is how the service works in the meantime.
+            {faqCopy.supporting}
           </p>
         </div>
         <div className="divide-y divide-brand-line border-y border-brand-line">

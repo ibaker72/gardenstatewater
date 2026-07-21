@@ -1,191 +1,107 @@
 /**
  * All landing-page copy in one typed place, so wording changes never require
- * touching component code — and so launch-stage language (no unconfirmed
- * prices, days, fees, or water-source claims) stays easy to review.
+ * touching component code.
+ *
+ * Positioning: premium but neighborly. We are NOT the cheap option — the
+ * supermarket sells $6.99 exchange jugs you haul yourself; we are the "never
+ * think about water again" service for busy NJ + NY households. Local family
+ * business, not corporate.
  */
 
-export interface TrustPoint {
-  label: string;
-}
-
 export const hero = {
-  eyebrow: 'North Jersey Water Delivery',
-  headline: 'Reliable 5-gallon water delivery, without the heavy lifting.',
-  supporting:
-    'Fresh water delivered directly to your home or workplace. Choose a schedule that fits your needs, leave your empty bottles out, and we handle the exchange.',
-  primaryCta: 'Check My Address',
-  secondaryCta: 'Explore Delivery Options',
-  trustPoints: [
-    { label: 'Flexible delivery schedules' },
-    { label: 'Home and business service' },
-    { label: 'Simple bottle exchange' },
-  ] satisfies TrustPoint[],
+  eyebrow: 'Spring water delivery · New Jersey & New York',
+  headline: 'Pure water, delivered to your door. Never haul a jug again.',
+  /**
+   * Alternate headlines for the owner to A/B swap in (just replace
+   * `headline` above):
+   *  1. 'Your water guy, on schedule. Heavy lifting included.'
+   *  2. 'The last time you carry a 42-lb jug is the day before we start.'
+   */
+  subhead:
+    '5-gallon spring water delivery across New Jersey & New York. Subscribe and save — first delivery 50% off.',
+  primaryCta: 'Start My Subscription',
+  secondaryCta: 'See Plans & Pricing',
+  trustStrip: [
+    'Local family-owned',
+    'Free dispenser rental on annual plans',
+    'No contracts, cancel anytime',
+  ],
 } as const;
-
-export interface DeliveryAudience {
-  id: string;
-  title: string;
-  copy: string;
-  benefits: string[];
-  cta: string;
-  customerType: 'home' | 'business';
-}
-
-export const deliveryAudiences: DeliveryAudience[] = [
-  {
-    id: 'home-delivery',
-    title: 'Home Water Delivery',
-    copy: 'Convenient bottle exchange for families, apartments, home offices, and anyone tired of carrying heavy jugs from the store.',
-    benefits: [
-      'Flexible recurring deliveries',
-      'Easy empty-bottle exchange',
-      'Dispenser options available',
-      'Pause or adjust service when needed',
-    ],
-    cta: 'Explore Home Delivery',
-    customerType: 'home',
-  },
-  {
-    id: 'business-delivery',
-    title: 'Office & Business Delivery',
-    copy: 'Dependable recurring water delivery for offices, auto shops, gyms, salons, warehouses, medical practices, job sites, and local businesses.',
-    benefits: [
-      'Recurring commercial routes',
-      'Multiple bottle quantities',
-      'Dispenser options',
-      'Business account support',
-    ],
-    cta: 'Request a Business Quote',
-    customerType: 'business',
-  },
-];
 
 export interface ProcessStep {
   title: string;
   copy: string;
 }
 
-export const howItWorks: { heading: string; steps: ProcessStep[] } = {
-  heading: 'Water delivery made simple.',
+export const howItWorks: { heading: string; supporting: string; steps: ProcessStep[] } = {
+  heading: 'Set it once. Sip forever.',
+  supporting: 'Three steps, and the last two are ours.',
   steps: [
     {
-      title: 'Choose what you need',
-      copy: 'Tell us how many bottles you use, whether you need a dispenser, and how often you would like delivery.',
+      title: 'Pick your plan',
+      copy: 'Choose how many jugs your household goes through in a month. Not sure? Start with Hydrate — you can change or pause anytime.',
     },
     {
-      title: 'We confirm your route',
-      copy: 'We verify your address, availability, pricing, bottle requirements, and first delivery date.',
+      title: 'We deliver on your day',
+      copy: 'Same delivery day every week, with a text reminder the night before. You don’t need to be home — we follow your drop-off instructions.',
     },
     {
-      title: 'Leave the empties out',
-      copy: 'On future delivery days, leave your empty bottles in the agreed location and we exchange them for full ones.',
+      title: 'Swap empties, sip fresh',
+      copy: 'Leave your empties out and we exchange them for full, sealed jugs. No signature, no lifting, no thinking about water again.',
     },
   ],
 };
 
-export interface Offering {
-  id: string;
-  title: string;
-  copy: string;
-  icon: 'exchange' | 'setup' | 'bottomLoad' | 'countertop' | 'office' | 'bulk';
-  enabled: boolean;
-}
-
-export const deliveryOptions: { heading: string; note: string; offerings: Offering[] } = {
-  heading: 'Choose the setup that fits your space.',
-  note: 'Pricing and bottle requirements are confirmed after we verify your address and requested service.',
-  offerings: [
-    {
-      id: 'bottle-exchange',
-      title: '5-Gallon Bottle Exchange',
-      copy: 'Recurring swaps of your empty bottles for full ones on your delivery day.',
-      icon: 'exchange',
-      enabled: true,
-    },
-    {
-      id: 'first-time-setup',
-      title: 'First-Time Bottle Setup',
-      copy: 'We walk you through bottle counts, deposits or purchases, and your first drop-off.',
-      icon: 'setup',
-      enabled: true,
-    },
-    {
-      id: 'bottom-load-dispenser',
-      title: 'Bottom-Load Dispenser Rental',
-      copy: 'A floor-standing dispenser that hides the bottle in a lower cabinet — no lifting.',
-      icon: 'bottomLoad',
-      enabled: true,
-    },
-    {
-      id: 'countertop-dispenser',
-      title: 'Countertop Dispenser Rental',
-      copy: 'A compact top-load option for kitchens and break rooms with limited floor space.',
-      icon: 'countertop',
-      enabled: true,
-    },
-    {
-      id: 'office-plans',
-      title: 'Office Water Plans',
-      copy: 'Recurring multi-bottle service sized for your team, with a single point of contact.',
-      icon: 'office',
-      enabled: true,
-    },
-    {
-      id: 'bulk-requests',
-      title: 'One-Time & Bulk Requests',
-      copy: 'Events, job sites, and occasional top-ups — tell us what you need and when.',
-      icon: 'bulk',
-      enabled: true,
-    },
-  ],
-};
-
-export const benefits: { heading: string; items: { title: string; copy: string }[] } = {
-  heading: 'Local service. Straightforward delivery.',
-  items: [
-    {
-      title: 'Local North Jersey service',
-      copy: 'We build dense neighborhood routes close to home, not a national call-center operation.',
-    },
-    {
-      title: 'Flexible requests',
-      copy: 'Recurring schedules or one-time deliveries — adjust as your needs change.',
-    },
-    {
-      title: 'Homes and businesses',
-      copy: 'The same dependable exchange service for kitchens, offices, gyms, and shops.',
-    },
-    {
-      title: 'Easy bottle exchange',
-      copy: 'Leave your empties in the agreed spot and we swap them for full bottles.',
-    },
-    {
-      title: 'Online account access',
-      copy: 'Customers get a portal to view deliveries, invoices, and make requests.',
-    },
-    {
-      title: 'Responsive support',
-      copy: 'A real person confirms your setup, schedule, and any changes to your service.',
-    },
-  ],
-};
-
-export const serviceArea = {
-  heading: 'Launching route by route across North Jersey.',
+export const comparison = {
+  eyebrow: 'Why us',
+  heading: 'The supermarket jug is $6.99. Here’s what it actually costs.',
   supporting:
-    'We are opening service in select communities and expanding based on route density and customer demand. Enter your ZIP code to check current availability.',
-  noAreasFallback: 'Service is currently being confirmed address by address.',
+    'Exchange racks are fine — if you enjoy wrestling 42-pound jugs into a trunk every week. We built the version where water simply appears.',
+  theirLabel: 'Supermarket exchange',
+  oursLabel: 'Garden State Water',
+  rows: [
+    { label: 'Price per jug', theirs: '$6.99 + your time & gas', ours: 'from $8.63, delivered' },
+    { label: 'Hauling 42-lb jugs', theirs: 'You', ours: 'Us' },
+    { label: 'Remembering to go', theirs: 'You', ours: 'Automatic — same day every week' },
+    { label: 'Delivery', theirs: 'None', ours: 'Free on all plans' },
+    { label: 'Dispenser', theirs: 'Buy your own', ours: 'Included or rented from us' },
+    { label: 'Support', theirs: 'A 1-800 number', ours: 'Text your delivery guy directly' },
+  ],
 } as const;
 
-export const foundingCustomer = {
-  heading: 'Join the Founding Customer Program',
-  copy: 'Early customers help us build efficient neighborhood routes and receive priority scheduling as service opens in their area.',
-  benefits: [
-    'Priority route consideration',
-    'Direct onboarding support',
-    'Early access to available delivery plans',
-  ],
-  cta: 'Join the Priority List',
+export const pricingCopy = {
+  eyebrow: 'Plans & pricing',
+  heading: 'Simple plans. Free delivery. No contracts.',
+  supporting:
+    'Every subscription includes free weekly delivery and jug exchange. Pause, change, or cancel anytime — no fees, no fine print.',
+  annualNote: 'Pay yearly and get 1 month free.',
+  addOnsHeading: 'Add-ons & extras',
+  firstDeliveryOffer: 'First delivery 50% off every new subscription — applied automatically at checkout.',
+} as const;
+
+export const serviceAreaCopy = {
+  eyebrow: 'Service area',
+  heading: 'Delivering across the NY–NJ metro.',
+  supporting:
+    'From the Jersey Shore to Westchester, our routes cover the neighborhoods below — and we add new towns based on the waitlist.',
+  checkerHeading: 'Do we deliver to you?',
+  checkerSupporting: 'Enter your ZIP to check availability.',
+  waitlistHeading: 'Join the waitlist',
+  waitlistSupporting:
+    'We open new routes where the waitlist is strongest — leave your number and we’ll text you when we arrive.',
+} as const;
+
+export const dealsCopy = {
+  eyebrow: 'Deals & offers',
+  heading: 'Good water. Better welcome.',
+  supporting: 'Current offers for new and existing customers.',
+} as const;
+
+export const testimonialsCopy = {
+  eyebrow: 'Neighbors',
+  heading: 'Word travels fast on a delivery route.',
+  exampleNote:
+    'Example quotes shown for illustration — real customer reviews are added by the owner and replace these.',
 } as const;
 
 export interface FaqItem {
@@ -195,57 +111,58 @@ export interface FaqItem {
 
 export const faqs: FaqItem[] = [
   {
-    question: 'What kind of water do you deliver?',
+    question: 'Where does the water come from?',
     answer:
-      'We are finalizing our launch suppliers and available water options. The exact product, source, bottle type, and pricing will be confirmed before your first delivery.',
+      'We deliver natural spring water, bottled and sealed in sanitized 5-gallon jugs by our licensed regional supplier. Every jug arrives capped and tamper-sealed, and we sanitize bottles between every exchange.',
   },
   {
-    question: 'Do I need to own 5-gallon bottles?',
+    question: 'What if I’m not home on delivery day?',
     answer:
-      'Bottle requirements depend on the service option you select. We will explain bottle purchases, exchanges, deposits, or rental terms before scheduling your first delivery.',
+      'No problem — most of our deliveries happen while people are out. Leave your empties in your usual spot (porch, garage, side door, front desk) and we swap them for full jugs. No signature needed, and we text you a reminder the night before plus a confirmation when we’ve been by.',
   },
   {
-    question: 'How does the bottle exchange work?',
+    question: 'Can I skip a week or pause my subscription?',
     answer:
-      'After your initial setup, you leave your empty bottles in the agreed delivery location and we replace them with full bottles during your scheduled visit.',
+      'Yes, anytime. Skip a delivery, pause for a vacation, or change your jug count from your customer portal — as long as it’s before 8pm the night before your delivery day, it takes effect immediately. Paused months aren’t billed.',
   },
   {
-    question: 'Can I pause or change my deliveries?',
+    question: 'Is there a contract?',
     answer:
-      'Available account options will depend on your delivery plan. Contact us before your next route date and we will help adjust your service.',
+      'No contracts, ever. Plans are month-to-month and you can cancel anytime from your portal or by texting us. Annual plans are simply pre-paid for the discount (1 month free) — if you cancel early, we refund the unused months at the monthly rate.',
   },
   {
-    question: 'Do you deliver to apartments?',
+    question: 'What areas do you serve?',
     answer:
-      'Apartment delivery may be available depending on building access, stairs, parking, delivery instructions, and route coverage.',
+      'Most of the NY–NJ metro: North Jersey, Morris & Essex, Central Jersey, South Jersey, and the Jersey Shore, plus Manhattan below 96th St, brownstone Brooklyn, Westchester, and Staten Island. Enter your ZIP in the checker above for a definitive answer — and if we’re not in your neighborhood yet, the waitlist literally decides where we expand next.',
   },
   {
-    question: 'Do you serve businesses?',
+    question: 'How does the jug exchange work?',
     answer:
-      'Yes. We accept requests from offices, retail locations, service businesses, gyms, warehouses, job sites, and other local organizations.',
+      'Your first delivery includes your full jugs (plus a dispenser if you added one). From then on, leave your empties out on delivery day and we exchange them one-for-one for full jugs. The jugs stay ours, so there’s nothing to store or return if you ever cancel — we just pick up the last empties.',
   },
   {
-    question: 'What happens if I am not home?',
+    question: 'What’s the bottle deposit?',
     answer:
-      'Many deliveries can be completed using an approved drop-off location. We will confirm access and delivery instructions during onboarding.',
+      'First-time customers pay a one-time $10 deposit per jug in rotation, fully refundable when you return them. It simply covers the bottles while they live at your place — it’s not a fee, and it comes back to you if you ever stop service.',
   },
   {
-    question: 'Do you rent water dispensers?',
+    question: 'Do I need a dispenser?',
     answer:
-      'Dispenser options may be available based on inventory. Select your preferred setup when requesting service and we will confirm availability.',
-  },
-  {
-    question: 'Which areas do you serve?',
-    answer:
-      'We are launching in select North Jersey communities and expanding route by route. Enter your ZIP code for the latest availability.',
+      'If you already own one, your jugs will fit it — the 5-gallon format is standard. Otherwise rent one from us for $7/month (free on Family and Office plans, and free for 3 months on Family annual signups) or buy one outright for $129. We deliver, set up, and swap it if it ever acts up.',
   },
 ];
 
+export const faqCopy = {
+  eyebrow: 'Questions',
+  heading: 'Frequently asked questions',
+  supporting: 'Everything else — just text or email us. A real person answers.',
+} as const;
+
 export const finalCta = {
-  heading: 'Ready to stop carrying heavy water bottles?',
-  copy: 'Check your address and tell us what you need. We will personally confirm availability and your first delivery details.',
-  primaryCta: 'Check My Address',
-  secondaryCta: 'Request Business Service',
+  heading: 'Your first delivery is 50% off.',
+  copy: 'Check your ZIP, pick a plan, and never carry water again.',
+  primaryCta: 'Check your ZIP →',
+  secondaryCta: 'See Plans & Pricing',
 } as const;
 
 export const consentCopy =

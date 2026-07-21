@@ -1,40 +1,39 @@
+import { CalendarCheck2, ListChecks, Recycle } from 'lucide-react';
 import { howItWorks } from '@/config/marketing-content';
 import { container, sectionEyebrow, sectionHeading } from './styles';
 
-/** Connected three-step process — numbered, with a linking line, not floating cards. */
+const STEP_ICONS = [ListChecks, CalendarCheck2, Recycle];
+
 export function HowItWorks() {
   return (
     <section id="how-it-works" className="scroll-mt-24 bg-brand-mist py-16 md:py-24">
       <div className={container}>
-        <div className="max-w-2xl">
+        <div className="mx-auto max-w-2xl text-center">
           <p className={sectionEyebrow}>How it works</p>
           <h2 className={sectionHeading}>{howItWorks.heading}</h2>
+          <p className="mt-4 text-[15px] leading-relaxed text-brand-ink sm:text-lg">
+            {howItWorks.supporting}
+          </p>
         </div>
-        <ol className="mt-12 grid gap-10 md:grid-cols-3 md:gap-8">
-          {howItWorks.steps.map((step, index) => (
-            <li key={step.title} className="relative flex gap-5 md:block">
-              {/* connector: vertical on mobile, horizontal on desktop */}
-              {index < howItWorks.steps.length - 1 && (
-                <>
-                  <span
-                    aria-hidden="true"
-                    className="absolute left-6 top-14 h-[calc(100%-8px)] w-px -translate-x-1/2 bg-brand-line md:hidden"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="absolute left-[4.5rem] top-6 hidden h-px w-[calc(100%-3.5rem)] bg-brand-line md:block"
-                  />
-                </>
-              )}
-              <span className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-brand-blue bg-white text-lg font-bold text-brand-blue">
-                {index + 1}
-              </span>
-              <div className="md:mt-5">
-                <h3 className="text-lg font-bold text-brand-navy">{step.title}</h3>
-                <p className="mt-1.5 max-w-sm text-[15px] leading-relaxed text-brand-ink">{step.copy}</p>
-              </div>
-            </li>
-          ))}
+        <ol className="mt-10 grid gap-5 md:grid-cols-3">
+          {howItWorks.steps.map((step, index) => {
+            const Icon = STEP_ICONS[index % STEP_ICONS.length];
+            return (
+              <li key={step.title} className="relative rounded-2xl border border-brand-line bg-white p-6 pt-8">
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-4 left-6 flex h-8 w-8 items-center justify-center rounded-full bg-brand-navy text-sm font-bold text-white"
+                >
+                  {index + 1}
+                </span>
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-aqua text-brand-blue">
+                  <Icon size={22} aria-hidden="true" />
+                </span>
+                <h3 className="mt-4 text-lg font-bold text-brand-navy">{step.title}</h3>
+                <p className="mt-2 text-[15px] leading-relaxed text-brand-ink">{step.copy}</p>
+              </li>
+            );
+          })}
         </ol>
       </div>
     </section>
