@@ -8,6 +8,7 @@
  */
 import { PrismaClient, type Customer, type Order } from '@prisma/client';
 import { addDays } from 'date-fns';
+import { launchDeals, launchPlans, launchServiceZipRows } from '../src/config/launch-service-area';
 
 const prisma = new PrismaClient();
 
@@ -33,8 +34,13 @@ async function main() {
     prisma.invoice.deleteMany(),
     prisma.portalRequest.deleteMany(),
     prisma.commLog.deleteMany(),
+    prisma.referralCredit.deleteMany(),
     prisma.customer.deleteMany(),
+    prisma.serviceZip.deleteMany(),
     prisma.zone.deleteMany(),
+    prisma.waitlistEntry.deleteMany(),
+    prisma.deal.deleteMany(),
+    prisma.sitePlan.deleteMany(),
     prisma.inventoryMovement.deleteMany(),
     prisma.inventoryItem.deleteMany(),
     prisma.supplierPurchase.deleteMany(),
@@ -50,7 +56,13 @@ async function main() {
       jugRefillPrice: JUG_PRICE,
       jugPurchasePrice: 35,
       dispenserRentalPrice: 7,
-      bottleCasePrice: 6,
+      bottleCasePrice: 8.99,
+      oneTimeJugPrice: 11.99,
+      oneTimeDeliveryFee: 4.99,
+      dispenserPurchasePrice: 129,
+      jugDepositPrice: 10,
+      annualFreeMonths: 1,
+      firstDeliveryDiscountPct: 50,
       weeklyDiscountPct: 10,
       biweeklyDiscountPct: 5,
       bulkBuyQty: 10,
@@ -443,6 +455,71 @@ async function main() {
       },
     });
   }
+
+  // ── Marketing site: plans, deals, serviceable ZIPs, waitlist ───
+  await prisma.sitePlan.createMany({
+    data: launchPlans.map((p) => ({
+      key: p.key,
+      name: p.name,
+      tagline: p.tagline,
+      monthlyPrice: p.monthlyPrice,
+      priceUnit: p.priceUnit,
+      jugsPerMonth: p.jugsPerMonth,
+      badge: p.badge,
+      features: [...p.features],
+      isSubscription: p.isSubscription,
+      customQuote: p.customQuote,
+      sortOrder: p.sortOrder,
+    })),
+  });
+  await prisma.deal.createMany({
+    data: launchDeals.map((d) => ({
+      slot: d.slot,
+      title: d.title,
+      description: d.description,
+      badge: d.badge,
+      sortOrder: d.sortOrder,
+    })),
+  });
+  const zipRows = launchServiceZipRows();
+  // The existing operational zone ZIPs stay serviceable too.
+  const zoneZips: { zip: string; zoneId: string; name: string }[] = [
+    ...zone1.zips.map((zip) => ({ zip, zoneId: zone1.id, name: 'Newark' })),
+    ...zone2.zips.map((zip) => ({ zip, zoneId: zone2.id, name: 'East Orange' })),
+    ...zone3.zips.map((zip) => ({ zip, zoneId: zone3.id, name: 'Elizabeth' })),
+  ];
+  await prisma.serviceZip.createMany({
+    data: [
+      ...zoneZips.map((z) => ({
+        zip: z.zip,
+        town: z.name,
+        state: 'NJ',
+        region: 'North Jersey',
+        slug: `${z.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-nj`,
+        zoneId: z.zoneId,
+      })),
+      ...zipRows.filter((r) => !zoneZips.some((z) => z.zip === r.zip)),
+    ],
+  });
+  await prisma.waitlistEntry.createMany({
+    data: [
+      { name: 'Priya Raman', phone: '(551) 555-0123', zip: '07302', source: 'homepage' },
+      { name: 'Dan Kowalski', phone: '(973) 555-0197', zip: '07940', town: 'Madison', source: 'homepage' },
+    ],
+  });
+
+  // ── Referral program flavor ────────────────────────────────────
+  await prisma.customer.update({ where: { id: maria.id }, data: { referralCode: 'GSW-MARIA1' } });
+  await prisma.customer.update({
+    where: { id: rosa.id },
+    data: { referralCode: 'GSW-ROSA22', referredById: maria.id },
+  });
+  await prisma.referralCredit.createMany({
+    data: [
+      { customerId: maria.id, jugs: 1, reason: 'Referred Rosa Nguyen' },
+      { customerId: rosa.id, jugs: 1, reason: 'Signed up with code GSW-MARIA1', redeemedAt: day(-30) },
+    ],
+  });
 
   // ── Comm log + portal request flavor ───────────────────────────
   await prisma.commLog.createMany({

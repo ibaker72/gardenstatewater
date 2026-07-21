@@ -148,6 +148,10 @@ model Customer {
   portalPin        String? // sha256(customerId:pin) — fallback login for customers without phone/email
   portalLastLoginAt DateTime?
   birthday         DateTime?
+  referralCode     String?          @unique // shareable "refer a neighbor" code, e.g. GSW-A1B2C3
+  referredById     String?
+  referredBy       Customer?        @relation("CustomerReferrals", fields: [referredById], references: [id])
+  referrals        Customer[]       @relation("CustomerReferrals")
   startedAt        DateTime         @default(now())
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -160,6 +164,7 @@ model Customer {
   notified  NotificationLog[]
   portalSessions PortalSession[]
   portalLoginCodes PortalLoginCode[]
+  referralCredits ReferralCredit[]
 
   @@index([zoneId])
   @@index([status])
@@ -238,9 +243,102 @@ model Zone {
   zips         String[]   @default([]) // zip codes mapped to this zone
   color       String?    @default("#1c94bd")
   customers   Customer[]
+  serviceZips ServiceZip[]
   createdAt   DateTime   @default(now())
 
   @@map("zones")
+}
+
+// The public serviceable-ZIP list: powers the marketing site's ZIP checker,
+// region grid, and the per-town SEO landing pages. Owner-managed from
+// Settings → Website; a ZIP here means "we deliver" even before it is wired
+// to an operational zone.
+model ServiceZip {
+  zip       String   @id // 5-digit ZIP
+  town      String // "Morristown"
+  state     String   @default("NJ") // NJ | NY
+  region    String // "Morris & Essex", "Westchester", …
+  slug      String // town landing-page slug, e.g. "morristown-nj" (shared by the town's ZIPs)
+  zoneId    String?
+  zone      Zone?    @relation(fields: [zoneId], references: [id])
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([slug])
+  @@index([region])
+  @@map("service_zips")
+}
+
+// Visitors outside the service area who asked to be texted when we arrive.
+// This list drives expansion planning — visible in Settings → Website.
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  email     String?
+  zip       String
+  town      String? // resolved town when the ZIP is recognized
+  source    String   @default("homepage")
+  contacted Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([zip])
+  @@map("waitlist_entries")
+}
+
+// Marketing offers and the seasonal banner, editable from Settings → Website.
+// slot "offer" renders in the Deals section; slot "banner" is the strip above
+// the header (first active row wins).
+model Deal {
+  id          String   @id @default(cuid())
+  slot        String   @default("offer") // offer | banner
+  title       String
+  description String?
+  badge       String? // "Launch offer", "Limited time", …
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("deals")
+}
+
+// The public pricing tiers shown on gardenstatewater.com. Prices and
+// visibility are owner-editable (Settings → Website); the signup flow maps a
+// tier onto the operational subscription fields at checkout.
+model SitePlan {
+  id             String   @id @default(cuid())
+  key            String   @unique // one_time | hydrate | family | office
+  name           String
+  tagline        String?
+  monthlyPrice   Float // for one_time this is the per-jug price
+  priceUnit      String   @default("month") // "month" | "jug"
+  jugsPerMonth   Int
+  badge          String? // "Most Popular"
+  features       String[] @default([])
+  isSubscription Boolean  @default(true)
+  customQuote    Boolean  @default(false) // office: "starts at" + contact CTA
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("site_plans")
+}
+
+// "Refer a neighbor, both get a free jug" ledger. A row is one free-jug
+// credit; redeemedAt is set when the owner applies it to a delivery.
+model ReferralCredit {
+  id         String    @id @default(cuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  jugs       Int       @default(1)
+  reason     String // "Referred Maria A." / "Signed up with GSW-A1B2C3"
+  redeemedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId])
+  @@map("referral_credits")
 }
 
 // Single-row table of every configurable price / business setting.
@@ -249,8 +347,15 @@ model PricingConfig {
   jugRefillPrice        Float    @default(8)
   jugPurchasePrice      Float    @default(35)
   dispenserRentalPrice  Float    @default(7) // per month
-  bottleCasePrice       Float    @default(6) // case of 16oz bottles
+  bottleCasePrice       Float    @default(8.99) // case of 16.9oz bottles (delivery add-on)
   flatDeliveryFee       Float    @default(0) // used when customer has no zone
+  // Public storefront prices (Settings → Website / pricing page)
+  oneTimeJugPrice          Float @default(11.99) // one-time delivery, per jug
+  oneTimeDeliveryFee       Float @default(4.99) // delivery fee on one-time orders
+  dispenserPurchasePrice   Float @default(129) // buy a dispenser outright
+  jugDepositPrice          Float @default(10) // refundable first-time bottle deposit
+  annualFreeMonths         Int   @default(1) // pay yearly, get N months free
+  firstDeliveryDiscountPct Float @default(50) // new-subscription launch offer
   weeklyDiscountPct     Float    @default(10)
   biweeklyDiscountPct   Float    @default(5)
   monthlyDiscountPct    Float    @default(0)
