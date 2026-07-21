@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { normalizeZip, resolveServiceAreaStatus } from '../src/lib/service-area';
+import { normalizeZip, resolvePublicArea, resolveServiceAreaStatus } from '../src/lib/service-area';
 
 describe('normalizeZip', () => {
   it('accepts a clean 5-digit ZIP', () => {
@@ -39,5 +39,35 @@ describe('resolveServiceAreaStatus', () => {
 
   it('falls back to manual review when no zones are configured', () => {
     assert.equal(resolveServiceAreaStatus('07102', []), 'manual_review');
+  });
+});
+
+describe('resolvePublicArea', () => {
+  const morristown = { zip: '07960', town: 'Morristown', state: 'NJ', active: true };
+  const zones = [['07102', '07103']];
+
+  it('returns the town for an active serviceable ZIP', () => {
+    assert.deepEqual(resolvePublicArea('07960', morristown, [], true), {
+      status: 'active',
+      town: 'Morristown',
+      state: 'NJ',
+    });
+  });
+
+  it('ignores an inactive serviceable ZIP', () => {
+    const inactive = { ...morristown, active: false };
+    assert.equal(resolvePublicArea('07960', inactive, [], true).status, 'unavailable');
+  });
+
+  it('falls back to operational zone ZIPs without naming a town', () => {
+    assert.deepEqual(resolvePublicArea('07102', null, zones, false), { status: 'active' });
+  });
+
+  it('is unavailable when lists exist but nothing matches', () => {
+    assert.equal(resolvePublicArea('99999', null, zones, true).status, 'unavailable');
+  });
+
+  it('degrades to manual review when nothing is configured at all', () => {
+    assert.equal(resolvePublicArea('07960', null, [], false).status, 'manual_review');
   });
 });
