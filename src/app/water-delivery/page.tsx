@@ -5,7 +5,8 @@ import { SiteHeader } from '@/components/marketing/site-header';
 import { SiteFooter } from '@/components/marketing/site-footer';
 import { MapPin } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+// ISR: served from cache for fast TTFB; admin ZIP edits revalidate the tree.
+export const revalidate = 3600;
 
 const TITLE = 'Water Delivery Service Areas — NJ & NY | Garden State Water';
 const DESCRIPTION =
@@ -43,7 +44,11 @@ export default async function ServiceAreasPage() {
 
         <div className="mt-10 grid gap-8 md:grid-cols-2">
           {regions.map((region) => (
-            <section key={region.region} className="rounded-2xl border border-brand-line bg-brand-mist p-6">
+            <section
+              key={region.region}
+              id={region.region.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}
+              className="scroll-mt-24 rounded-2xl border border-brand-line bg-brand-mist p-6"
+            >
               <h2 className="flex items-center gap-2 text-lg font-bold text-brand-navy">
                 <MapPin size={18} className="text-brand-blue" aria-hidden="true" />
                 {region.region}, {region.state}

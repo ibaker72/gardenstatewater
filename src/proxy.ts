@@ -24,6 +24,7 @@ const PUBLIC_PREFIXES = [
   '/portal.webmanifest',
   '/robots.txt',
   '/sitemap.xml',
+  '/llms.txt',
   '/offline',
   '/offline.html', // the SW precaches this at install — it must never redirect to /login
 ];

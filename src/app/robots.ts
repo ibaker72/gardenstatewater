@@ -22,6 +22,7 @@ export default function robots(): MetadataRoute.Robots {
           '/settings',
           '/login',
           '/portal/', // individual customer pages are tokenized — never index
+          '/signup/success', // post-checkout page — meaningless in the index
           '/api/',
         ],
       },

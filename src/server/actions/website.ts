@@ -12,7 +12,9 @@ import { normalizeZip } from '@/lib/service-area';
 function revalidateSite() {
   revalidatePath('/');
   revalidatePath('/signup');
-  revalidatePath('/water-delivery');
+  // 'layout' sweeps the whole tree: the index AND every /water-delivery/[slug]
+  // town page (they're ISR-cached, so edits must bust them all).
+  revalidatePath('/water-delivery', 'layout');
   revalidatePath('/settings/website');
 }
 

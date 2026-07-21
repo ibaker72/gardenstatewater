@@ -1,24 +1,28 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { Check, MapPin, Sparkles } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, MapPin, Sparkles } from 'lucide-react';
 import {
   getPublicAddOns,
   getPublicPlans,
   getServiceRegions,
   getTownBySlug,
 } from '@/lib/marketing';
+import { countyForSlug, townFaqs, townIntro, type TownContext } from '@/lib/local-seo';
 import { displayPrice, perJugPrice } from '@/lib/plan-pricing';
+import { PRODUCTION_APP_URL } from '@/lib/env';
 import { siteConfig } from '@/config/site-config';
 import { SiteHeader } from '@/components/marketing/site-header';
 import { SiteFooter } from '@/components/marketing/site-footer';
 import { btnPrimary, btnSecondary } from '@/components/marketing/styles';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * Local-SEO landing page, one per serviceable town, generated from the
  * owner-managed `service_zips` table: /water-delivery/morristown-nj etc.
+ *
+ * Served from the ISR cache for fast TTFB (a Core Web Vitals ranking input);
+ * admin edits revalidate the whole /water-delivery tree immediately.
  */
+export const revalidate = 3600;
 
 export async function generateMetadata({
   params,
@@ -28,13 +32,23 @@ export async function generateMetadata({
   const { slug } = await params;
   const town = await getTownBySlug(slug);
   if (!town) return { title: { absolute: 'Water Delivery | Garden State Water' } };
+  const county = countyForSlug(slug);
   const title = `Water Delivery in ${town.town}, ${town.state} | Garden State Water`;
-  const description = `5-gallon spring water delivered to ${town.town} homes and offices weekly. Free delivery, jug exchange, no contracts — first delivery 50% off. Serving ZIP${town.zips.length === 1 ? '' : 's'} ${town.zips.slice(0, 6).join(', ')}.`;
+  const description = `5-gallon spring water delivered weekly to ${town.town}${county ? ` (${county})` : ''} homes and offices. Free delivery, jug exchange, no contracts — first delivery 50% off. ZIP${town.zips.length === 1 ? '' : 's'}: ${town.zips.slice(0, 6).join(', ')}.`;
   return {
     title: { absolute: title },
     description,
     alternates: { canonical: `/water-delivery/${slug}` },
-    openGraph: { title, description, url: `/water-delivery/${slug}`, siteName: siteConfig.businessName, type: 'website', images: [{ url: '/og.png', width: 1200, height: 630 }] },
+    // OG image comes from the sibling opengraph-image.tsx (per-town artwork).
+    openGraph: {
+      title,
+      description,
+      url: `/water-delivery/${slug}`,
+      siteName: siteConfig.businessName,
+      type: 'website',
+      locale: 'en_US',
+    },
+    twitter: { card: 'summary_large_image', title, description },
   };
 }
 
@@ -49,6 +63,7 @@ export default async function TownPage({ params }: { params: Promise<{ slug: str
   if (!town) notFound();
 
   const primaryZip = town.zips[0];
+  const county = countyForSlug(slug);
   const hydrate = plans.find((p) => p.key === 'hydrate') ?? plans.find((p) => p.isSubscription);
   const neighbors =
     regions
@@ -56,15 +71,56 @@ export default async function TownPage({ params }: { params: Promise<{ slug: str
       ?.towns.filter((t) => t.slug !== town.slug)
       .slice(0, 8) ?? [];
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'LocalBusiness',
-    name: siteConfig.businessName,
-    description: `5-gallon spring water delivery in ${town.town}, ${town.state}.`,
-    url: `https://gardenstatewater.com/water-delivery/${town.slug}`,
-    priceRange: '$$',
-    areaServed: [`${town.town}, ${town.state}`, ...town.zips],
-  };
+  const context: TownContext = { town, neighbors, plans, addOns };
+  const intro = townIntro(context);
+  const faqs = townFaqs(context);
+  const pageUrl = `${PRODUCTION_APP_URL}/water-delivery/${town.slug}`;
+
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'LocalBusiness',
+      '@id': `${pageUrl}#business`,
+      name: siteConfig.businessName,
+      description: `5-gallon spring water delivery in ${town.town}, ${town.state}.`,
+      url: pageUrl,
+      priceRange: '$$',
+      areaServed: [`${town.town}, ${town.state}`, ...(county ? [county] : []), ...town.zips],
+      hasOfferCatalog: {
+        '@type': 'OfferCatalog',
+        name: 'Water delivery plans',
+        itemListElement: plans
+          .filter((p) => !p.customQuote)
+          .map((p) => ({
+            '@type': 'Offer',
+            name: p.name,
+            price: p.monthlyPrice.toFixed(2),
+            priceCurrency: 'USD',
+            description: p.isSubscription
+              ? `${p.jugsPerMonth} five-gallon jugs per month, free weekly delivery in ${town.town}.`
+              : `One-time 5-gallon jug delivery in ${town.town} (per jug).`,
+          })),
+      },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: PRODUCTION_APP_URL },
+        { '@type': 'ListItem', position: 2, name: 'Service Areas', item: `${PRODUCTION_APP_URL}/water-delivery` },
+        { '@type': 'ListItem', position: 3, name: `${town.town}, ${town.state}`, item: pageUrl },
+      ],
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqs.map((faq) => ({
+        '@type': 'Question',
+        name: faq.question,
+        acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+      })),
+    },
+  ];
 
   const forceLight = `document.documentElement.classList.remove('dark');`;
 
@@ -76,18 +132,35 @@ export default async function TownPage({ params }: { params: Promise<{ slug: str
 
       <main className="flex-1">
         <section className="bg-brand-mist">
-          <div className="mx-auto w-full max-w-site px-5 pb-14 pt-12 sm:px-8 md:pt-16">
-            <p className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-[0.14em] text-brand-blue">
-              <MapPin size={15} aria-hidden="true" /> {town.region} · {town.state}
+          <div className="mx-auto w-full max-w-site px-5 pb-14 pt-8 sm:px-8 md:pt-10">
+            <nav aria-label="Breadcrumb" className="text-sm text-brand-ink">
+              <ol className="flex flex-wrap items-center gap-1">
+                <li>
+                  <a href="/" className="rounded hover:text-brand-blue hover:underline">Home</a>
+                </li>
+                <li className="flex items-center gap-1">
+                  <ChevronRight size={14} aria-hidden="true" />
+                  <a href="/water-delivery" className="rounded hover:text-brand-blue hover:underline">Service Areas</a>
+                </li>
+                <li className="flex items-center gap-1">
+                  <ChevronRight size={14} aria-hidden="true" />
+                  <span aria-current="page" className="font-semibold text-brand-navy">{town.town}, {town.state}</span>
+                </li>
+              </ol>
+            </nav>
+
+            <p className="mt-6 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-[0.14em] text-brand-blue">
+              <MapPin size={15} aria-hidden="true" /> {town.region}
+              {county ? ` · ${county}` : ''} · {town.state}
             </p>
             <h1 className="mt-3 max-w-3xl text-4xl font-bold leading-[1.1] tracking-tight text-brand-navy sm:text-5xl">
               Water delivery in {town.town}, {town.state}
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-relaxed text-brand-ink">
-              Fresh 5-gallon spring water, delivered to {town.town} doorsteps on the same day every
-              week. We haul the jugs, swap your empties, and text you the night before — you just
-              stay hydrated. Local family business, no contracts, cancel anytime.
-            </p>
+            {intro.map((paragraph) => (
+              <p key={paragraph.slice(0, 32)} className="mt-5 max-w-2xl text-lg leading-relaxed text-brand-ink">
+                {paragraph}
+              </p>
+            ))}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <a href={`/signup?zip=${primaryZip}`} className={btnPrimary}>
                 Start My Subscription — 50% off first delivery
@@ -129,6 +202,26 @@ export default async function TownPage({ params }: { params: Promise<{ slug: str
                 New {town.town} customers get {Math.round(addOns.firstDeliveryDiscountPct)}% off their
                 first delivery — applied automatically at checkout.
               </p>
+
+              {/* Town FAQ — native <details>, fully crawlable, zero JS */}
+              <h2 className="mt-12 text-2xl font-bold tracking-tight text-brand-navy md:text-3xl">
+                {town.town} water delivery FAQs
+              </h2>
+              <div className="mt-5 divide-y divide-brand-line border-y border-brand-line">
+                {faqs.map((faq) => (
+                  <details key={faq.question} className="group py-1">
+                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 py-3 text-[17px] font-semibold text-brand-navy transition-colors hover:text-brand-blue [&::-webkit-details-marker]:hidden">
+                      {faq.question}
+                      <ChevronDown
+                        size={20}
+                        aria-hidden="true"
+                        className="shrink-0 text-brand-blue transition-transform group-open:rotate-180"
+                      />
+                    </summary>
+                    <p className="max-w-2xl pb-4 text-[15px] leading-relaxed text-brand-ink">{faq.answer}</p>
+                  </details>
+                ))}
+              </div>
             </div>
 
             <aside className="h-fit rounded-2xl border border-brand-line bg-brand-mist p-6 sm:p-8">
@@ -175,7 +268,7 @@ export default async function TownPage({ params }: { params: Promise<{ slug: str
                       href={`/water-delivery/${n.slug}`}
                       className="rounded text-[15px] font-medium text-brand-blue hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-blue"
                     >
-                      {n.town}, {n.state}
+                      Water delivery {n.town}, {n.state}
                     </a>
                   </li>
                 ))}
