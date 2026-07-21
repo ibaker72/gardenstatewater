@@ -143,7 +143,10 @@ restoring the old value **and redeploying**.
 
 | Area | Route | Highlights |
 |---|---|---|
-| Dashboard | `/` | today's stats, health score, low-stock + overdue alerts, quick actions |
+| Marketing site | `/` | public storefront: pricing table w/ annual toggle, ZIP checker + waitlist, deals, comparison, FAQ |
+| Signup | `/signup` | plan → details → referral code → Stripe Checkout (50% first-delivery coupon), creates the CRM customer + pending first order |
+| Local SEO pages | `/water-delivery/[town]` | per-town landing pages generated from the serviceable-ZIP list |
+| Dashboard | `/dashboard` | today's stats, health score, low-stock + overdue alerts, quick actions |
 | Customers | `/customers` | search/filter, zones, at-risk flags, comm log, jug & balance tracking |
 | Orders | `/orders` | manual + "generate subscription orders", status flow, delivery sheet |
 | Delivery sheet | `/orders/delivery-sheet` | printable, route-sorted, works offline once loaded |
@@ -155,6 +158,7 @@ restoring the old value **and redeploying**.
 | Reports | `/reports` | revenue, volume, growth, route efficiency, P&L — all CSV-exportable |
 | Requests | `/requests` | inbox for portal requests |
 | Settings | `/settings` | zones, automation toggles, integration status, notification log |
+| Website settings | `/settings/website` | public plans (prices/on-off), deals + seasonal banner, serviceable ZIPs, waitlist (+CSV export), referral activity |
 
 ### Daily automation (`/api/cron/daily`)
 
@@ -189,3 +193,12 @@ summary. Also runnable on demand from **Settings**.
   "Generate" is idempotent per customer/date.
 - **Route solver**: nearest-neighbor construction + 2-opt improvement; Google Distance
   Matrix when configured, haversine ×1.3 road factor otherwise.
+- **Public storefront**: plans render from `site_plans`, add-on prices from
+  `pricing_config`, service areas from `service_zips`, offers from `deals` — all
+  owner-editable in Settings → Website (migration `0006_marketing_phase4.sql` seeds the
+  launch data insert-if-absent). Signups check the ZIP server-side, create the customer
+  (zone auto-assigned), schedule a pending first order, file a "New signup" request, and
+  hand off to Stripe (subscription mode; the first-delivery discount is a one-time
+  coupon). Out-of-area visitors land in `waitlist_entries`. Referral codes
+  (`GSW-XXXXXX`) live on the customer, are shown in the portal, and credit a free jug to
+  both sides via `referral_credits`.
