@@ -170,6 +170,19 @@ export default async function SettingsPage() {
           </div>
         </form>
 
+        {/* Website content */}
+        <div className="card space-y-3 p-4">
+          <h2 className="font-semibold">Website</h2>
+          <p className="text-sm text-slate-500">
+            Everything the public site renders from: pricing plans, deals and the seasonal banner,
+            serviceable ZIP codes (with their SEO town pages), the expansion waitlist, and referral
+            activity.
+          </p>
+          <a href="/settings/website" className="btn-primary inline-block">
+            Manage website content
+          </a>
+        </div>
+
         {/* Website testimonials */}
         <div className="card space-y-3 p-4">
           <h2 className="font-semibold">Website testimonials</h2>

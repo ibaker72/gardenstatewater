@@ -7,6 +7,7 @@ import { Badge, EmptyState, PageHeader } from '@/components/ui';
 import type { Prisma } from '@prisma/client';
 
 const KIND_LABEL: Record<string, string> = {
+  NEW_SIGNUP: 'New signup',
   EXTRA_DELIVERY: 'Extra delivery',
   PAUSE: 'Pause service',
   RESUME: 'Resume service',
