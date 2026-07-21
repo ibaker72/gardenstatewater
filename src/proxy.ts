@@ -11,6 +11,8 @@ const PUBLIC_PREFIXES = [
   '/portal',
   '/privacy',
   '/terms',
+  '/signup',
+  '/water-delivery',
   '/api/stripe/webhook',
   '/api/cron',
   '/api/portal',
