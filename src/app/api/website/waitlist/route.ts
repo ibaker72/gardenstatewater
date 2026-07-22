@@ -13,7 +13,7 @@ const csvField = (value: string | null) => {
  * the middleware's public list, so only the authenticated owner reaches this.
  */
 export async function GET() {
-  const entries = await prisma.waitlist.findMany({ orderBy: { createdAt: 'desc' } });
+  const entries = await prisma.waitlistEntry.findMany({ orderBy: { createdAt: 'desc' } });
   const header = 'name,phone,email,zip,town,contacted,signed_up';
   const rows = entries.map((entry: typeof entries[number]) =>
     [
